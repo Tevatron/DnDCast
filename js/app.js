@@ -1,21 +1,21 @@
 // =====================================================================
-// DnDCast — app.js
-// Edit scenes.json, sessions.json, campaigns.json to customize content.
-// Edit CONFIG to change global defaults.
+// DnDCast — app.js (player entry point)
+//
+// Loads as an ES module: <script type="module" src="js/app.js">.
+// Must be served over http:// (the project's local server), not file://.
+//
+// Content lives in scenes.json / sessions.json / campaigns.json — edit
+// those (or use editor.html) to change what plays. Tunables: js/config.js.
 // =====================================================================
 
-const CONFIG = {
-  fadeMs: 600,
-  autoHideMs: 3000,
-  objectFit: 'cover',          // 'cover' or 'contain'
-  blackoutPausesAudio: true,
-};
+import { CONFIG } from './config.js';
+import { AudioController } from './audio.js';
 
-// --- State ---
+// ── State ────────────────────────────────────────────────────────────
 let allScenes    = [];
 let allSessions  = [];
 let allCampaigns = [];
-let currentScenes = [];
+let currentScenes = [];           // scenes scoped to the active session
 let activeCampaignId = null;
 let activeSessionId  = null;
 
@@ -26,14 +26,14 @@ let titleVisible     = false;
 let presentationMode = false;
 let blackoutActive   = false;
 let notesOpen        = false;
-let audioMuted       = false;
 
-let currentAudio    = null;
-let audioGeneration = 0;
-let imageGeneration = 0;
-let hideTimer       = null;
+let imageGeneration = 0;          // guards stale image onload callbacks
+let hideTimer       = null;       // controls auto-hide
+let cursorTimer     = null;       // cursor auto-hide
 
-// --- DOM ---
+const audio = new AudioController(CONFIG.fadeMs);
+
+// ── DOM refs ─────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
 
 const startOverlay      = $('start-overlay');
@@ -44,6 +44,7 @@ const sessionOverlay    = $('session-overlay');
 const sessionPickerList = $('session-picker-list');
 const sessionLabel      = $('session-label');
 const switchSessionBtn  = $('switch-session-btn');
+const homeBtn           = $('home-btn');
 const sceneDisplay      = $('scene-display');
 const scenePlaceholder  = $('scene-placeholder');
 const placeholderTitle  = $('placeholder-title');
@@ -71,15 +72,20 @@ const volumeSlider      = $('volume-slider');
 const tapPrev           = $('tap-prev');
 const tapNext           = $('tap-next');
 
-// --- Init ---
+// ── Init / wiring ────────────────────────────────────────────────────
 function init() {
   loadState();
   volumeSlider.value = volume;
+  audio.volume = volume;
+  audio.onStateChange = updatePlayPauseBtn;
+  audio.onError = (src, blocked) =>
+    showError(blocked ? 'Tap ▶ to start audio (autoplay blocked).' : 'Audio not found: ' + src);
   sceneDisplay.style.backgroundSize = CONFIG.objectFit;
   applyPresentationMode();
 
-  startBtn.addEventListener('click', startSession);
+  startBtn.addEventListener('click',         startSession);
   switchSessionBtn.addEventListener('click', openSessionFlow);
+  homeBtn.addEventListener('click',          goHome);
 
   prevBtn.addEventListener('click', () => changeScene(-1));
   nextBtn.addEventListener('click', () => changeScene(1));
@@ -90,23 +96,23 @@ function init() {
   closeDrawerBtn.addEventListener('click', closeDrawer);
   drawerBackdrop.addEventListener('click', closeDrawer);
 
-  playPauseBtn.addEventListener('click', togglePlayPause);
-  blackoutBtn.addEventListener('click',  toggleBlackout);
-  titleBtn.addEventListener('click',     toggleTitle);
-  fullscreenBtn.addEventListener('click',toggleFullscreen);
-  presentBtn.addEventListener('click',   togglePresentation);
-  presentDot.addEventListener('click',   togglePresentation);
-  notesToggleBtn.addEventListener('click', toggleNotes);
-  volumeSlider.addEventListener('input', onVolumeChange);
+  playPauseBtn.addEventListener('click',  () => audio.togglePlayPause());
+  blackoutBtn.addEventListener('click',   toggleBlackout);
+  titleBtn.addEventListener('click',      toggleTitle);
+  fullscreenBtn.addEventListener('click', toggleFullscreen);
+  presentBtn.addEventListener('click',    togglePresentation);
+  presentDot.addEventListener('click',    togglePresentation);
+  notesToggleBtn.addEventListener('click',toggleNotes);
+  volumeSlider.addEventListener('input',  onVolumeChange);
 
   document.addEventListener('touchstart', onInteraction, { passive: true });
-  document.addEventListener('mousemove',  onInteraction);
+  document.addEventListener('mousemove',  onMouseMove);
   document.addEventListener('keydown',    onKeydown);
   document.addEventListener('fullscreenchange',       updateFullscreenBtn);
   document.addEventListener('webkitfullscreenchange', updateFullscreenBtn);
 }
 
-// --- Session start ---
+// ── Session start / home ─────────────────────────────────────────────
 async function startSession() {
   unlockAudioContext();
   sessionStarted = true;
@@ -114,19 +120,36 @@ async function startSession() {
   await loadData();
 }
 
+// Stop everything and return to the Start Session screen.
+function goHome() {
+  audio.stopAll();
+  sessionStarted = false;
+  clearTimeout(cursorTimer);
+  document.body.classList.remove('cursor-hidden');
+  if (blackoutActive) {
+    blackoutActive = false;
+    blackoutEl.hidden = true;
+    blackoutBtn.classList.remove('active');
+  }
+  closeDrawer();
+  campaignOverlay.hidden = true;
+  sessionOverlay.hidden  = true;
+  startOverlay.hidden    = false;
+}
+
+// Play a silent buffer on the first gesture so mobile browsers unlock audio.
 function unlockAudioContext() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
-    const buf = ctx.createBuffer(1, 1, 22050);
     const src = ctx.createBufferSource();
-    src.buffer = buf;
+    src.buffer = ctx.createBuffer(1, 1, 22050);
     src.connect(ctx.destination);
     src.start(0);
     setTimeout(() => ctx.close(), 500);
   } catch (_) {}
 }
 
-// --- Data loading ---
+// ── Data loading ─────────────────────────────────────────────────────
 async function loadData() {
   const [scenesRes, sessionsRes, campaignsRes] = await Promise.allSettled([
     fetchJSON('scenes.json'),
@@ -143,7 +166,6 @@ async function loadData() {
     showControls();
     return;
   }
-
   openSessionFlow();
 }
 
@@ -153,15 +175,11 @@ async function fetchJSON(url) {
   return res.json();
 }
 
-// --- Campaign / session picker flow ---
+// ── Campaign / session pickers ───────────────────────────────────────
 function openSessionFlow() {
-  if (allCampaigns.length) {
-    showCampaignPicker();
-  } else if (allSessions.length) {
-    showSessionPicker(null);
-  } else {
-    startAllScenes();
-  }
+  if (allCampaigns.length)     showCampaignPicker();
+  else if (allSessions.length) showSessionPicker(null);
+  else                         startAllScenes();
 }
 
 function showCampaignPicker() {
@@ -175,10 +193,7 @@ function showCampaignPicker() {
       `<span class="picker-title">${escHtml(campaign.title)}</span>` +
       `<span class="picker-meta">${count} session${count !== 1 ? 's' : ''}</span>` +
       (campaign.description ? `<span class="picker-desc">${escHtml(campaign.description)}</span>` : '');
-    li.addEventListener('click', () => {
-      campaignOverlay.hidden = true;
-      showSessionPicker(campaign.id);
-    });
+    li.addEventListener('click', () => { campaignOverlay.hidden = true; showSessionPicker(campaign.id); });
     campaignList.appendChild(li);
   });
 
@@ -188,10 +203,7 @@ function showCampaignPicker() {
     allLi.innerHTML =
       `<span class="picker-title">All Campaigns</span>` +
       `<span class="picker-meta">${allSessions.length} sessions</span>`;
-    allLi.addEventListener('click', () => {
-      campaignOverlay.hidden = true;
-      showSessionPicker(null);
-    });
+    allLi.addEventListener('click', () => { campaignOverlay.hidden = true; showSessionPicker(null); });
     campaignList.appendChild(allLi);
   }
 
@@ -200,9 +212,7 @@ function showCampaignPicker() {
 
 function showSessionPicker(campaignId) {
   activeCampaignId = campaignId;
-  const filtered = campaignId
-    ? allSessions.filter(s => s.campaignId === campaignId)
-    : allSessions;
+  const filtered = campaignId ? allSessions.filter(s => s.campaignId === campaignId) : allSessions;
 
   sessionPickerList.innerHTML = '';
 
@@ -220,7 +230,7 @@ function showSessionPicker(campaignId) {
     sessionPickerList.appendChild(li);
   });
 
-  // Play all scenes option
+  // "Play all scenes" bypasses session scoping
   const allLi = document.createElement('li');
   allLi.className = 'picker-card picker-all';
   allLi.innerHTML =
@@ -229,7 +239,6 @@ function showSessionPicker(campaignId) {
   allLi.addEventListener('click', startAllScenes);
   sessionPickerList.appendChild(allLi);
 
-  // Back to campaigns if applicable
   if (allCampaigns.length) {
     const backLi = document.createElement('li');
     backLi.className = 'picker-back';
@@ -250,7 +259,7 @@ function pickSession(session) {
   localStorage.setItem('dndcast_session', session.id);
   if (activeCampaignId) localStorage.setItem('dndcast_campaign', activeCampaignId);
 
-  // Resolve IDs to scene objects; silently skip missing IDs
+  // Resolve scene IDs to objects, silently skipping any missing ones
   currentScenes = (Array.isArray(session.scenes) ? session.scenes : [])
     .map(id => allScenes.find(s => s.id === id))
     .filter(Boolean);
@@ -275,7 +284,9 @@ function startAllScenes() {
   enterPlayer();
 }
 
+// Hard-stop prior audio so a session/campaign swap never overlaps tracks.
 function enterPlayer() {
+  audio.stopAll();
   const savedIdx = parseInt(localStorage.getItem('dndcast_index_' + activeSessionId), 10);
   const idx = (Number.isFinite(savedIdx) && savedIdx >= 0 && savedIdx < currentScenes.length) ? savedIdx : 0;
   updateSessionLabel();
@@ -288,12 +299,11 @@ function updateSessionLabel() {
   if (activeSessionId === 'all') { sessionLabel.textContent = 'All Scenes'; return; }
   const session  = allSessions.find(s => s.id === activeSessionId);
   const campaign = allCampaigns.find(c => c.id === activeCampaignId);
-  const parts    = [campaign?.title, session?.title].filter(Boolean);
-  sessionLabel.textContent = parts.join(' — ');
+  sessionLabel.textContent = [campaign?.title, session?.title].filter(Boolean).join(' — ');
 }
 
-// --- Scene navigation ---
-async function goToScene(index) {
+// ── Scene navigation ─────────────────────────────────────────────────
+function goToScene(index) {
   if (!currentScenes.length) return;
   index = Math.max(0, Math.min(index, currentScenes.length - 1));
   currentIndex = index;
@@ -305,7 +315,7 @@ async function goToScene(index) {
   const imgGen = ++imageGeneration;
   loadSceneImage(scene.image, imgGen, scene.title);
 
-  // Warm the next scene's image into cache
+  // Warm the next scene's image into browser cache
   if (index + 1 < currentScenes.length && currentScenes[index + 1].image) {
     new Image().src = currentScenes[index + 1].image;
   }
@@ -314,15 +324,20 @@ async function goToScene(index) {
   notesContent.textContent = scene.notes || '(no notes for this scene)';
   updateSceneListHighlight();
 
-  await switchAudio(scene);
+  audio.play(scene);     // crossfade handled by the controller
 }
 
+function changeScene(delta) {
+  if (!sessionStarted || !currentScenes.length) return;
+  goToScene(currentIndex + delta);
+}
+
+// Show the image, or a title-card placeholder when it's absent/broken.
 function loadSceneImage(src, gen, sceneTitle) {
   if (!src) {
-    // No image provided — show placeholder (intentional state, not an error)
     if (gen === imageGeneration) {
       sceneDisplay.style.backgroundImage = 'none';
-      showPlaceholder(sceneTitle, null);
+      showPlaceholder(sceneTitle, null);          // intentional, not an error
     }
     return;
   }
@@ -347,75 +362,9 @@ function showPlaceholder(title, errorText) {
   placeholderError.textContent = errorText || '';
   scenePlaceholder.hidden = false;
 }
+function hidePlaceholder() { scenePlaceholder.hidden = true; }
 
-function hidePlaceholder() {
-  scenePlaceholder.hidden = true;
-}
-
-function changeScene(delta) {
-  if (!sessionStarted || !currentScenes.length) return;
-  goToScene(currentIndex + delta);
-}
-
-// --- Audio ---
-async function switchAudio(scene) {
-  const gen  = ++audioGeneration;
-  const prev = currentAudio;
-  currentAudio = null;
-
-  if (prev) {
-    await fadeAudio(prev, 0, CONFIG.fadeMs);
-    prev.pause();
-    prev.src = '';
-  }
-  if (gen !== audioGeneration) return;
-
-  // No audio field = silent scene; clear any stale error and exit cleanly
-  if (!scene.audio) {
-    updatePlayPauseBtn();
-    return;
-  }
-
-  const audio  = new Audio(scene.audio);
-  audio.loop   = scene.loopAudio !== false;
-  audio.volume = 0;
-  audio.onerror = () => {
-    if (gen === audioGeneration) showError('Audio not found: ' + scene.audio);
-  };
-
-  currentAudio = audio;
-
-  try {
-    await audio.play();
-  } catch (_) {
-    if (gen === audioGeneration) showError('Tap ▶ to start audio (autoplay blocked).');
-  }
-
-  if (gen === audioGeneration) {
-    await fadeAudio(audio, audioMuted ? 0 : volume, CONFIG.fadeMs);
-    updatePlayPauseBtn();
-  }
-}
-
-function fadeAudio(audioEl, target, durationMs) {
-  return new Promise(resolve => {
-    const start = audioEl.volume;
-    if (Math.abs(start - target) < 0.001 || durationMs <= 0) {
-      audioEl.volume = target;
-      return resolve();
-    }
-    const t0 = performance.now();
-    function step(now) {
-      const p = Math.min((now - t0) / durationMs, 1);
-      audioEl.volume = start + (target - start) * p;
-      if (p < 1) requestAnimationFrame(step);
-      else { audioEl.volume = target; resolve(); }
-    }
-    requestAnimationFrame(step);
-  });
-}
-
-// --- Scene list / drawer ---
+// ── Scene list drawer ────────────────────────────────────────────────
 function buildSceneList() {
   sceneList.innerHTML = '';
   currentScenes.forEach((scene, i) => {
@@ -432,24 +381,15 @@ function buildSceneList() {
 }
 
 function updateSceneListHighlight() {
-  Array.from(sceneList.children).forEach((li, i) => {
-    li.classList.toggle('current', i === currentIndex);
-  });
+  Array.from(sceneList.children).forEach((li, i) => li.classList.toggle('current', i === currentIndex));
 }
 
 function openDrawer()  { sceneDrawer.hidden = false; drawerBackdrop.hidden = false; }
 function closeDrawer() { sceneDrawer.hidden = true;  drawerBackdrop.hidden = true; }
 
-// --- Control actions ---
-function togglePlayPause() {
-  if (!currentAudio) return;
-  if (currentAudio.paused) currentAudio.play().catch(() => {});
-  else currentAudio.pause();
-  updatePlayPauseBtn();
-}
-
+// ── Control actions ──────────────────────────────────────────────────
 function updatePlayPauseBtn() {
-  const paused = !currentAudio || currentAudio.paused;
+  const paused = audio.isPaused();
   playPauseBtn.innerHTML = paused ? '&#x25B6;' : '&#x23F8;';
   playPauseBtn.title     = paused ? 'Resume' : 'Pause';
 }
@@ -458,10 +398,9 @@ function toggleBlackout() {
   blackoutActive    = !blackoutActive;
   blackoutEl.hidden = !blackoutActive;
   blackoutBtn.classList.toggle('active', blackoutActive);
-  if (CONFIG.blackoutPausesAudio && currentAudio) {
-    if (blackoutActive) currentAudio.pause();
-    else currentAudio.play().catch(() => {});
-    updatePlayPauseBtn();
+  if (CONFIG.blackoutPausesAudio) {
+    if (blackoutActive) audio.pause();
+    else audio.resume();
   }
 }
 
@@ -473,17 +412,14 @@ function toggleTitle() {
 }
 
 function toggleMute() {
-  audioMuted = !audioMuted;
-  const vol  = audioMuted ? 0 : volume;
-  if (currentAudio) currentAudio.volume = vol;
-  volumeSlider.value = vol;
+  const muted = audio.toggleMute();
+  volumeSlider.value = muted ? 0 : volume;
 }
 
 function onVolumeChange() {
-  volume     = parseFloat(volumeSlider.value);
-  audioMuted = false;
+  volume = parseFloat(volumeSlider.value);
   localStorage.setItem('dndcast_volume', volume);
-  if (currentAudio) currentAudio.volume = volume;
+  audio.setVolume(volume);
 }
 
 function toggleFullscreen() {
@@ -514,15 +450,24 @@ function applyPresentationMode() {
 }
 
 function toggleNotes() {
-  notesOpen              = !notesOpen;
-  notesContent.hidden    = !notesOpen;
+  notesOpen           = !notesOpen;
+  notesContent.hidden = !notesOpen;
   notesToggleBtn.innerHTML = notesOpen ? 'Notes &#x25BE;' : 'Notes &#x25B8;';
 }
 
-// --- Auto-hide controls ---
-function onInteraction() {
+// ── Auto-hide controls + cursor ──────────────────────────────────────
+function onInteraction() {            // touch: controls only (no cursor)
   if (presentationMode) return;
   showControls();
+}
+
+function onMouseMove() {              // mouse: controls + cursor
+  if (sessionStarted) {
+    document.body.classList.remove('cursor-hidden');
+    clearTimeout(cursorTimer);
+    cursorTimer = setTimeout(() => document.body.classList.add('cursor-hidden'), CONFIG.autoHideMs);
+  }
+  if (!presentationMode) showControls();
 }
 
 function showControls() {
@@ -531,22 +476,22 @@ function showControls() {
   hideTimer = setTimeout(() => controls.classList.add('hidden'), CONFIG.autoHideMs);
 }
 
-// --- Keyboard ---
+// ── Keyboard shortcuts (desktop) ─────────────────────────────────────
 function onKeydown(e) {
   if (!sessionStarted) return;
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
   switch (e.key) {
-    case 'ArrowRight': case ' ': e.preventDefault(); changeScene(1);   break;
-    case 'ArrowLeft':            e.preventDefault(); changeScene(-1);  break;
-    case 'b': case 'B': toggleBlackout();    break;
-    case 'm': case 'M': toggleMute();        break;
-    case 'f': case 'F': toggleFullscreen();  break;
-    case 't': case 'T': toggleTitle();       break;
-    case 'p': case 'P': togglePresentation();break;
+    case 'ArrowRight': case ' ': e.preventDefault(); changeScene(1);  break;
+    case 'ArrowLeft':            e.preventDefault(); changeScene(-1); break;
+    case 'b': case 'B': toggleBlackout();     break;
+    case 'm': case 'M': toggleMute();         break;
+    case 'f': case 'F': toggleFullscreen();   break;
+    case 't': case 'T': toggleTitle();        break;
+    case 'p': case 'P': togglePresentation(); break;
   }
 }
 
-// --- State persistence ---
+// ── State persistence ────────────────────────────────────────────────
 function loadState() {
   const v = parseFloat(localStorage.getItem('dndcast_volume'));
   if (!isNaN(v)) volume = Math.max(0, Math.min(1, v));
@@ -561,7 +506,7 @@ function loadState() {
   if (fit === 'cover' || fit === 'contain') CONFIG.objectFit = fit;
 }
 
-// --- Helpers ---
+// ── Helpers ──────────────────────────────────────────────────────────
 function showError(msg) { errorMsg.textContent = msg; }
 function clearError()   { errorMsg.textContent = ''; }
 

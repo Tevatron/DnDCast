@@ -12,6 +12,10 @@
 /* Ensure [hidden] wins over any display: flex/block in author CSS */
 [hidden] { display: none !important; }
 
+/* Hide the mouse cursor after inactivity for a clean mirrored view */
+body.cursor-hidden,
+body.cursor-hidden * { cursor: none !important; }
+
 html, body {
   width: 100%;
   height: 100%;
