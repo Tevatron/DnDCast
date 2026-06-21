@@ -23,6 +23,39 @@ Then open in your browser:
 http://localhost:8080
 ```
 
+> **Note:** the app loads as ES modules, so it must be served over `http://`
+> (the dev server above) — opening the `.html` files via `file://` won't work.
+
+---
+
+## The Three Modes
+
+Opening `http://localhost:8080` shows a **home page** with three modes:
+
+1. **Player** (`player.html`) — displays scene art and plays audio. This is the
+   tab you cast to the TV. On its own it works exactly like before; when a DM
+   tab is open, it follows the DM.
+2. **DM Control** (`player.html?role=dm`) — your private control surface. Same
+   controls as the player, plus a readable **notes + script overlay** over the
+   art. Every action (scene change, play/pause, volume, blackout…) is sent to
+   the Player tab. This tab is muted by default and is **not** meant to be cast.
+3. **Editor** (`editor.html`) — create and edit campaigns, sessions, and scenes.
+
+### Running DM + Player together (recommended)
+The DM and Player tabs talk to each other directly via the browser
+(BroadcastChannel) — **no server beyond the static file host**. They must be in
+the **same browser on the same machine**:
+
+1. Open **Player** in one tab and **DM Control** in another (same Chrome/Edge).
+2. Tap **Start Session** in both. In the DM tab, pick a campaign/session.
+3. Cast only the Player tab: **Chrome menu → Cast… → Sources → Cast tab**, then
+   pick your Samsung TV (or a Chromecast). The DM tab stays private on your PC.
+4. Drive everything from the DM tab. Use **🔊 Listen here** in the DM tab if you
+   also want to hear the audio locally; otherwise only the cast tab makes sound.
+
+> Cross-device control (DM on a different device than the Player) would require
+> a relay server and is intentionally out of scope for this static-site setup.
+
 ---
 
 ## Connecting from Your Phone (Same Wi-Fi)

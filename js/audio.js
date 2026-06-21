@@ -20,8 +20,9 @@ export class AudioController {
     this.current  = null;        // the live track
     this.retiring = null;        // a track currently fading out (max one)
     this.gen      = 0;           // guards overlapping play() calls
-    this.volume   = 1;
-    this.muted    = false;
+    this.volume   = 1;           // logical volume (what the DM broadcasts)
+    this.muted    = false;       // logical mute
+    this.localOutput = true;     // false = silence THIS device only (DM tab)
     this.onStateChange = null;   // () => void  — fired on play/pause/swap
     this.onError       = null;   // (src, autoplayBlocked) => void
     this._notifyBound  = () => this._notify();
@@ -55,7 +56,7 @@ export class AudioController {
     }
 
     if (gen !== this.gen) { this._destroy(audio); return; }  // superseded mid-play()
-    this._fade(audio, this.muted ? 0 : this.volume, this.fadeMs);
+    this._fade(audio, this._effVol(), this.fadeMs);
     this._notify();
   }
 
@@ -83,18 +84,40 @@ export class AudioController {
   setVolume(v) {
     this.volume = v;
     this.muted  = false;
-    if (this.current) { this._cancelFade(this.current); this.current.volume = v; }
+    this._applyVolume();
   }
 
   toggleMute() {
     this.muted = !this.muted;
-    if (this.current) { this._cancelFade(this.current); this.current.volume = this.muted ? 0 : this.volume; }
+    this._applyVolume();
     return this.muted;
+  }
+
+  // Silence (or un-silence) only this device's output, without changing
+  // the logical volume/mute the DM broadcasts to the cast Player tab.
+  setLocalOutput(enabled) {
+    this.localOutput = enabled;
+    this._applyVolume();
+  }
+
+  // Apply a remote (volume, muted) pair without the unmute side effect of
+  // setVolume — used by the Player tab when following the DM.
+  syncVolume(volume, muted) {
+    this.volume = volume;
+    this.muted  = muted;
+    this._applyVolume();
   }
 
   // --- Internals -----------------------------------------------------
 
   _notify() { if (this.onStateChange) this.onStateChange(); }
+
+  // Effective element volume = logical volume, gated by local output + mute.
+  _effVol() { return this.localOutput ? (this.muted ? 0 : this.volume) : 0; }
+
+  _applyVolume() {
+    if (this.current) { this._cancelFade(this.current); this.current.volume = this._effVol(); }
+  }
 
   // Fade the current track out and let it self-destroy when done.
   // Keeps at most one fading-out track so rapid switching can't stack.
@@ -122,11 +145,20 @@ export class AudioController {
   // Bumping the per-element token makes any running _fade() loop bail.
   _cancelFade(audio) { audio._fadeToken = (audio._fadeToken || 0) + 1; }
 
+  // Snap fades to their target — used when the tab is backgrounded, where
+  // requestAnimationFrame is frozen and an animated fade would never advance.
+  freezeFades() {
+    if (this.retiring) this._destroy(this.retiring);  // kill any fade-out now
+    this._applyVolume();                              // snap current to target
+  }
+
   _fade(audio, target, ms) {
     return new Promise(resolve => {
       const start = audio.volume;
       const token = (audio._fadeToken = (audio._fadeToken || 0) + 1);
-      if (Math.abs(start - target) < 0.001 || ms <= 0) { audio.volume = target; return resolve(); }
+      // Hidden tabs freeze rAF, so jump straight to the target volume.
+      const hidden = typeof document !== 'undefined' && document.hidden;
+      if (hidden || Math.abs(start - target) < 0.001 || ms <= 0) { audio.volume = target; return resolve(); }
       const t0 = performance.now();
       const step = now => {
         if (audio._fadeToken !== token) return resolve();   // cancelled/superseded
