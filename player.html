@@ -97,23 +97,28 @@
 
     <!-- Main buttons -->
     <div id="btn-row">
+      <button id="home-btn"            title="Stop &amp; return home">&#x23F9;</button>
       <button id="prev-btn"            title="Previous scene (&#x2190;)">&#x23EE;</button>
-      <button id="scenes-btn"          title="Scene list">&#x2630;</button>
       <button id="play-pause-btn"      title="Pause / Resume">&#x25B6;</button>
       <button id="next-btn"            title="Next scene (&#x2192; or Space)">&#x23ED;</button>
-      <button id="blackout-btn"        title="Blackout (B)">&#x25CF;</button>
-      <button id="title-btn"           title="Toggle title (T)">T</button>
-      <button id="dm-overlay-btn"      title="Toggle notes overlay (N)" hidden>&#x1F4D6;</button>
-      <button id="dm-listen-btn"       title="Listen to audio on this device" hidden>&#x1F507;</button>
-      <button id="dm-stage-btn"        title="Stage mode — suspend cast updates (Z)" hidden>&#x2298;</button>
-      <button id="fullscreen-btn"      title="Fullscreen (F)">&#x26F6;</button>
-      <button id="present-btn"         title="Presentation mode (P)">&#x25A1;</button>
-      <button id="switch-session-btn"  title="Switch session">&#x21BA;</button>
-      <button id="home-btn"            title="Stop &amp; return to start screen">&#x23F9;</button>
+      <button id="scenes-btn"          title="Scene list">&#x2630;</button>
       <label id="vol-label" title="Volume">
         <span>&#x1F50A;</span>
         <input type="range" id="volume-slider" min="0" max="1" step="0.05" value="1">
       </label>
+      <div id="overflow-wrap">
+        <button id="overflow-btn"      title="More options">&#x22EF;</button>
+        <div id="overflow-panel" hidden>
+          <button id="blackout-btn"       title="Blackout (B)">&#x25CF;</button>
+          <button id="title-btn"          title="Toggle title (T)">T</button>
+          <button id="switch-session-btn" title="Switch session">&#x21BA;</button>
+          <button id="present-btn"        title="Presentation mode (P)">&#x25A1;</button>
+          <button id="dm-overlay-btn"     title="Toggle notes overlay (N)" hidden>&#x1F4D6;</button>
+          <button id="dm-listen-btn"      title="Listen to audio on this device" hidden>&#x1F507;</button>
+          <button id="dm-stage-btn"       title="Stage mode — suspend cast updates (Z)" hidden>&#x2298;</button>
+        </div>
+      </div>
+      <button id="fullscreen-btn"      title="Fullscreen (F)">&#x26F6;</button>
     </div>
 
   </div>

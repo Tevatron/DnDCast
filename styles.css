@@ -567,6 +567,36 @@ html, body {
   border-color: #c9a84c;
 }
 
+#overflow-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+#overflow-panel {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  right: 0;
+  z-index: 30;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  padding: 8px;
+  background: rgba(18, 18, 18, 0.97);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  min-width: 168px;
+}
+
+/* Overflow panel buttons inherit #btn-row button styles already.
+   Shrink slightly so 4 fit in a row on the min-width. */
+#overflow-panel button {
+  min-width: 36px;
+  min-height: 36px;
+  font-size: 0.95rem;
+}
+
 #vol-label {
   display: flex;
   align-items: center;

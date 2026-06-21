@@ -89,6 +89,9 @@ const closeDrawerBtn    = $('close-drawer-btn');
 const notesToggleBtn    = $('notes-toggle-btn');
 const notesContent      = $('notes-content');
 const errorMsg          = $('error-msg');
+const overflowWrap      = $('overflow-wrap');
+const overflowBtn       = $('overflow-btn');
+const overflowPanel     = $('overflow-panel');
 const sceneCounter      = $('scene-counter');
 const prevBtn           = $('prev-btn');
 const nextBtn           = $('next-btn');
@@ -137,6 +140,10 @@ function init() {
   presentBtn.addEventListener('click',    togglePresentation);
   presentDot.addEventListener('click',    togglePresentation);
   notesToggleBtn.addEventListener('click',toggleNotes);
+  overflowBtn.addEventListener('click',   e => { e.stopPropagation(); toggleOverflow(); });
+  overflowPanel.addEventListener('click', () => closeOverflow());
+  document.addEventListener('click',     e => { if (!overflowWrap.contains(e.target)) closeOverflow(); });
+
   dmOverlayBtn.addEventListener('click',  toggleDmOverlay);
   dmListenBtn.addEventListener('click',   toggleDmListen);
   dmStageBtn.addEventListener('click',    toggleDmStage);
@@ -179,6 +186,7 @@ function applyRoleUI() {
     titleBtn.hidden         = true;
     presentBtn.hidden       = true;
     presentDot.hidden       = true;
+    overflowBtn.hidden      = true;   // overflow is empty in cast mode
   }
 }
 
@@ -464,6 +472,9 @@ function applyDmOverlayVisibility() {
   dmNotesOverlay.hidden = !(isDM && dmOverlayVisible && currentIndex >= 0);
 }
 
+function toggleOverflow() { overflowPanel.hidden = !overflowPanel.hidden; }
+function closeOverflow()  { overflowPanel.hidden = true; }
+
 function toggleDmStage() {
   isDMStaged = !isDMStaged;
   dmStageBadge.hidden = !isDMStaged;
@@ -693,11 +704,11 @@ function onKeydown(e) {
   switch (e.key) {
     case 'ArrowRight': case ' ': e.preventDefault(); changeScene(1);  break;
     case 'ArrowLeft':            e.preventDefault(); changeScene(-1); break;
-    case 'b': case 'B': toggleBlackout();     break;
-    case 'm': case 'M': toggleMute();         break;
-    case 'f': case 'F': toggleFullscreen();   break;
-    case 't': case 'T': toggleTitle();        break;
-    case 'p': case 'P': togglePresentation(); break;
+    case 'b': case 'B': if (!blackoutBtn.hidden) toggleBlackout();     break;
+    case 'm': case 'M': toggleMute();                                  break;
+    case 'f': case 'F': toggleFullscreen();                            break;
+    case 't': case 'T': if (!titleBtn.hidden)   toggleTitle();         break;
+    case 'p': case 'P': if (!presentBtn.hidden) togglePresentation();  break;
     case 'n': case 'N': if (isDM) toggleDmOverlay(); break;
     case 'z': case 'Z': if (isDM) toggleDmStage();   break;
   }
