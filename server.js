@@ -55,6 +55,7 @@ export async function createApp(config, opts = {}) {
   function requireAuth(req, res, next) {
     if (req.session.authed) return next();
     if (req.path === '/login') return next();
+    if (req.path.startsWith('/_test_/')) return next(); // test helpers — no route exists in prod
     if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Unauthorized' });
     res.redirect('/login');
   }
@@ -155,7 +156,13 @@ export async function createApp(config, opts = {}) {
     }
   }
 
-  return { app, server, wss, wsTokens };
+  function resetWsState() {
+    lastState = null;
+    for (const client of clients) client.close();
+    clients.clear();
+  }
+
+  return { app, server, wss, wsTokens, resetWsState };
 }
 
 // ── JSON helpers ──────────────────────────────────────────────────────
@@ -169,20 +176,62 @@ async function writeJson(dir, filename, data) {
   await writeFile(join(dir, filename), JSON.stringify(data, null, 2));
 }
 
+// ── First-time setup (inline) ─────────────────────────────────────────
+async function runSetup() {
+  const { createInterface } = await import('readline');
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  const ask = q => new Promise(resolve => rl.question(q, resolve));
+
+  console.log('\nWelcome to DnDCast! First-time setup.\n');
+  const password = await ask('Choose a password: ');
+  if (!password.trim()) { console.error('Password cannot be empty.'); process.exit(1); }
+
+  const { hashSync } = bcrypt;
+  const config = {
+    passwordHash:  hashSync(password, 10),
+    sessionSecret: crypto.randomBytes(32).toString('hex'),
+    port:          3000,
+  };
+  await writeFile(join(__dirname, 'config.json'), JSON.stringify(config, null, 2));
+  console.log('\nSetup complete!\n');
+  rl.close();
+  return config;
+}
+
+// ── Cloudflare Tunnel (optional) ──────────────────────────────────────
+function tryStartTunnel(port) {
+  import('child_process').then(({ spawn }) => {
+    const proc = spawn('cloudflared', ['tunnel', '--url', `http://localhost:${port}`], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+    });
+    const onData = data => {
+      const match = data.toString().match(/https:\/\/\S+\.trycloudflare\.com/);
+      if (match) console.log(`\nPublic URL: ${match[0]}\n`);
+    };
+    proc.stdout.on('data', onData);
+    proc.stderr.on('data', onData);
+    proc.on('error', () => {}); // cloudflared not installed — silently skip
+  });
+}
+
 // ── Entry point ───────────────────────────────────────────────────────
-// Only start listening when run directly, not when imported by tests.
+// Only starts listening when run directly, not when imported by tests.
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   let config;
   try {
     config = JSON.parse(await readFile(join(__dirname, 'config.json'), 'utf8'));
   } catch {
-    console.error('config.json not found. Run "node setup.js" first.');
-    process.exit(1);
+    if (!process.stdin.isTTY) {
+      console.error('config.json not found. Run "node setup.js" to create it.');
+      process.exit(1);
+    }
+    config = await runSetup();
   }
+
   const { server } = await createApp(config);
   const port = config.port ?? 3000;
   server.listen(port, () => {
     console.log(`DnDCast running at http://localhost:${port}`);
-    console.log('Expose publicly: cloudflared tunnel --url http://localhost:' + port);
+    if (config.tunnel !== false) tryStartTunnel(port);
   });
 }

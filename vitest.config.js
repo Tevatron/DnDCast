@@ -3,6 +3,7 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     globals: true,
+    exclude: ['tests/e2e/**', 'node_modules/**'],
     // Server tests run in Node; client tests need a DOM environment.
     environmentMatchGlobs: [
       ['tests/client/**', 'jsdom'],
