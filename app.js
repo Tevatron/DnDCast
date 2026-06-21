@@ -1,66 +1,77 @@
 // =====================================================================
 // DnDCast — app.js
-//
-// To customize scenes: edit scenes.json
-// To change global settings: edit CONFIG below
+// Edit scenes.json, sessions.json, campaigns.json to customize content.
+// Edit CONFIG to change global defaults.
 // =====================================================================
 
 const CONFIG = {
-  fadeMs: 600,               // audio crossfade duration in milliseconds
-  autoHideMs: 3000,          // ms before controls auto-hide after inactivity
-  objectFit: 'cover',        // 'cover' or 'contain' for scene background images
-  blackoutPausesAudio: true, // if true, blackout pauses audio; if false, audio continues
+  fadeMs: 600,
+  autoHideMs: 3000,
+  objectFit: 'cover',          // 'cover' or 'contain'
+  blackoutPausesAudio: true,
 };
 
-// --- State -----------------------------------------------------------
+// --- State ---
+let allScenes    = [];
+let allSessions  = [];
+let allCampaigns = [];
+let currentScenes = [];
+let activeCampaignId = null;
+let activeSessionId  = null;
 
-let scenes = [];
-let currentIndex = 0;
-let volume = 1;
-let sessionStarted = false;
-let titleVisible = false;
+let currentIndex     = 0;
+let volume           = 1;
+let sessionStarted   = false;
+let titleVisible     = false;
 let presentationMode = false;
-let blackoutActive = false;
-let notesOpen = false;
-let audioMuted = false;
+let blackoutActive   = false;
+let notesOpen        = false;
+let audioMuted       = false;
 
-let currentAudio = null;
-let audioGeneration = 0; // guards against stale async audio ops during rapid scene switching
-let imageGeneration = 0; // guards against stale image onload callbacks
-let hideTimer = null;
+let currentAudio    = null;
+let audioGeneration = 0;
+let imageGeneration = 0;
+let hideTimer       = null;
 
-// --- DOM refs --------------------------------------------------------
-
+// --- DOM ---
 const $ = id => document.getElementById(id);
 
-const startOverlay   = $('start-overlay');
-const startBtn       = $('start-btn');
-const sceneDisplay   = $('scene-display');
-const blackoutEl     = $('blackout');
-const titleOverlay   = $('title-overlay');
-const controls       = $('controls');
-const presentDot     = $('present-dot');
-const drawerBackdrop = $('drawer-backdrop');
-const sceneDrawer    = $('scene-drawer');
-const sceneList      = $('scene-list');
-const closeDrawerBtn = $('close-drawer-btn');
-const notesToggleBtn = $('notes-toggle-btn');
-const notesContent   = $('notes-content');
-const errorMsg       = $('error-msg');
-const prevBtn        = $('prev-btn');
-const nextBtn        = $('next-btn');
-const scenesBtn      = $('scenes-btn');
-const playPauseBtn   = $('play-pause-btn');
-const blackoutBtn    = $('blackout-btn');
-const titleBtn       = $('title-btn');
-const fullscreenBtn  = $('fullscreen-btn');
-const presentBtn     = $('present-btn');
-const volumeSlider   = $('volume-slider');
-const tapPrev        = $('tap-prev');
-const tapNext        = $('tap-next');
+const startOverlay      = $('start-overlay');
+const startBtn          = $('start-btn');
+const campaignOverlay   = $('campaign-overlay');
+const campaignList      = $('campaign-list');
+const sessionOverlay    = $('session-overlay');
+const sessionPickerList = $('session-picker-list');
+const sessionLabel      = $('session-label');
+const switchSessionBtn  = $('switch-session-btn');
+const sceneDisplay      = $('scene-display');
+const scenePlaceholder  = $('scene-placeholder');
+const placeholderTitle  = $('placeholder-title');
+const placeholderError  = $('placeholder-error');
+const blackoutEl        = $('blackout');
+const titleOverlay      = $('title-overlay');
+const controls          = $('controls');
+const presentDot        = $('present-dot');
+const drawerBackdrop    = $('drawer-backdrop');
+const sceneDrawer       = $('scene-drawer');
+const sceneList         = $('scene-list');
+const closeDrawerBtn    = $('close-drawer-btn');
+const notesToggleBtn    = $('notes-toggle-btn');
+const notesContent      = $('notes-content');
+const errorMsg          = $('error-msg');
+const prevBtn           = $('prev-btn');
+const nextBtn           = $('next-btn');
+const scenesBtn         = $('scenes-btn');
+const playPauseBtn      = $('play-pause-btn');
+const blackoutBtn       = $('blackout-btn');
+const titleBtn          = $('title-btn');
+const fullscreenBtn     = $('fullscreen-btn');
+const presentBtn        = $('present-btn');
+const volumeSlider      = $('volume-slider');
+const tapPrev           = $('tap-prev');
+const tapNext           = $('tap-next');
 
-// --- Init ------------------------------------------------------------
-
+// --- Init ---
 function init() {
   loadState();
   volumeSlider.value = volume;
@@ -68,13 +79,14 @@ function init() {
   applyPresentationMode();
 
   startBtn.addEventListener('click', startSession);
+  switchSessionBtn.addEventListener('click', openSessionFlow);
 
-  prevBtn.addEventListener('click',  () => changeScene(-1));
-  nextBtn.addEventListener('click',  () => changeScene(1));
-  tapPrev.addEventListener('click',  () => { showControls(); changeScene(-1); });
-  tapNext.addEventListener('click',  () => { showControls(); changeScene(1); });
+  prevBtn.addEventListener('click', () => changeScene(-1));
+  nextBtn.addEventListener('click', () => changeScene(1));
+  tapPrev.addEventListener('click', () => { showControls(); changeScene(-1); });
+  tapNext.addEventListener('click', () => { showControls(); changeScene(1); });
 
-  scenesBtn.addEventListener('click',      openDrawer);
+  scenesBtn.addEventListener('click', openDrawer);
   closeDrawerBtn.addEventListener('click', closeDrawer);
   drawerBackdrop.addEventListener('click', closeDrawer);
 
@@ -94,17 +106,14 @@ function init() {
   document.addEventListener('webkitfullscreenchange', updateFullscreenBtn);
 }
 
-// --- Session start ---------------------------------------------------
-
+// --- Session start ---
 async function startSession() {
   unlockAudioContext();
   sessionStarted = true;
   startOverlay.hidden = true;
-  showControls();
-  await loadScenes();
+  await loadData();
 }
 
-// Play a silent buffer to satisfy browser autoplay policies on first user gesture
 function unlockAudioContext() {
   try {
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -114,125 +123,262 @@ function unlockAudioContext() {
     src.connect(ctx.destination);
     src.start(0);
     setTimeout(() => ctx.close(), 500);
-  } catch (_) { /* AudioContext not supported — HTMLAudio autoplay may still work */ }
+  } catch (_) {}
 }
 
-// --- Scene loading ---------------------------------------------------
+// --- Data loading ---
+async function loadData() {
+  const [scenesRes, sessionsRes, campaignsRes] = await Promise.allSettled([
+    fetchJSON('scenes.json'),
+    fetchJSON('sessions.json'),
+    fetchJSON('campaigns.json'),
+  ]);
 
-async function loadScenes() {
-  try {
-    const res = await fetch('scenes.json');
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    scenes = await res.json();
-  } catch (e) {
-    showError('Could not load scenes.json — ' + e.message);
+  allScenes    = Array.isArray(scenesRes.value)    ? scenesRes.value    : [];
+  allSessions  = Array.isArray(sessionsRes.value)  ? sessionsRes.value  : [];
+  allCampaigns = Array.isArray(campaignsRes.value) ? campaignsRes.value : [];
+
+  if (!allScenes.length) {
+    showError('Could not load scenes.json or it is empty.');
+    showControls();
     return;
   }
 
-  if (!Array.isArray(scenes) || !scenes.length) {
-    showError('scenes.json is empty or invalid.');
-    return;
-  }
-
-  buildSceneList();
-
-  const saved = parseInt(localStorage.getItem('dndcast_index'), 10);
-  const startIdx = (Number.isFinite(saved) && saved >= 0 && saved < scenes.length) ? saved : 0;
-  await goToScene(startIdx);
+  openSessionFlow();
 }
 
-function buildSceneList() {
-  sceneList.innerHTML = '';
-  scenes.forEach((scene, i) => {
-    const li    = document.createElement('li');
-    const num   = document.createElement('span');
-    const label = document.createElement('span');
-    num.className   = 'scene-num';
-    num.textContent = i + 1;
-    label.textContent = scene.title || scene.id || ('Scene ' + (i + 1));
-    li.append(num, label);
-    li.addEventListener('click', () => { goToScene(i); closeDrawer(); });
-    sceneList.appendChild(li);
+async function fetchJSON(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+// --- Campaign / session picker flow ---
+function openSessionFlow() {
+  if (allCampaigns.length) {
+    showCampaignPicker();
+  } else if (allSessions.length) {
+    showSessionPicker(null);
+  } else {
+    startAllScenes();
+  }
+}
+
+function showCampaignPicker() {
+  campaignList.innerHTML = '';
+
+  allCampaigns.forEach(campaign => {
+    const count = allSessions.filter(s => s.campaignId === campaign.id).length;
+    const li = document.createElement('li');
+    li.className = 'picker-card';
+    li.innerHTML =
+      `<span class="picker-title">${escHtml(campaign.title)}</span>` +
+      `<span class="picker-meta">${count} session${count !== 1 ? 's' : ''}</span>` +
+      (campaign.description ? `<span class="picker-desc">${escHtml(campaign.description)}</span>` : '');
+    li.addEventListener('click', () => {
+      campaignOverlay.hidden = true;
+      showSessionPicker(campaign.id);
+    });
+    campaignList.appendChild(li);
   });
+
+  if (allSessions.length) {
+    const allLi = document.createElement('li');
+    allLi.className = 'picker-card picker-all';
+    allLi.innerHTML =
+      `<span class="picker-title">All Campaigns</span>` +
+      `<span class="picker-meta">${allSessions.length} sessions</span>`;
+    allLi.addEventListener('click', () => {
+      campaignOverlay.hidden = true;
+      showSessionPicker(null);
+    });
+    campaignList.appendChild(allLi);
+  }
+
+  campaignOverlay.hidden = false;
 }
 
-// --- Scene navigation ------------------------------------------------
+function showSessionPicker(campaignId) {
+  activeCampaignId = campaignId;
+  const filtered = campaignId
+    ? allSessions.filter(s => s.campaignId === campaignId)
+    : allSessions;
 
+  sessionPickerList.innerHTML = '';
+
+  filtered.forEach(session => {
+    const count = Array.isArray(session.scenes) ? session.scenes.length : 0;
+    const savedIdx = parseInt(localStorage.getItem('dndcast_index_' + session.id), 10);
+    const progress = (Number.isFinite(savedIdx) && savedIdx > 0) ? ' · scene ' + (savedIdx + 1) : '';
+
+    const li = document.createElement('li');
+    li.className = 'picker-card';
+    li.innerHTML =
+      `<span class="picker-title">${escHtml(session.title)}</span>` +
+      `<span class="picker-meta">${count} scene${count !== 1 ? 's' : ''}${escHtml(progress)}</span>`;
+    li.addEventListener('click', () => pickSession(session));
+    sessionPickerList.appendChild(li);
+  });
+
+  // Play all scenes option
+  const allLi = document.createElement('li');
+  allLi.className = 'picker-card picker-all';
+  allLi.innerHTML =
+    `<span class="picker-title">Play All Scenes</span>` +
+    `<span class="picker-meta">${allScenes.length} scenes</span>`;
+  allLi.addEventListener('click', startAllScenes);
+  sessionPickerList.appendChild(allLi);
+
+  // Back to campaigns if applicable
+  if (allCampaigns.length) {
+    const backLi = document.createElement('li');
+    backLi.className = 'picker-back';
+    const backBtn = document.createElement('button');
+    backBtn.className = 'text-btn';
+    backBtn.textContent = '← Back to Campaigns';
+    backBtn.addEventListener('click', () => { sessionOverlay.hidden = true; showCampaignPicker(); });
+    backLi.appendChild(backBtn);
+    sessionPickerList.appendChild(backLi);
+  }
+
+  sessionOverlay.hidden = false;
+}
+
+function pickSession(session) {
+  activeSessionId  = session.id;
+  activeCampaignId = session.campaignId || activeCampaignId;
+  localStorage.setItem('dndcast_session', session.id);
+  if (activeCampaignId) localStorage.setItem('dndcast_campaign', activeCampaignId);
+
+  // Resolve IDs to scene objects; silently skip missing IDs
+  currentScenes = (Array.isArray(session.scenes) ? session.scenes : [])
+    .map(id => allScenes.find(s => s.id === id))
+    .filter(Boolean);
+
+  if (!currentScenes.length) {
+    showError('Session has no valid scenes — loading all scenes instead.');
+    currentScenes = [...allScenes];
+  }
+
+  sessionOverlay.hidden  = true;
+  campaignOverlay.hidden = true;
+  enterPlayer();
+}
+
+function startAllScenes() {
+  activeSessionId  = 'all';
+  activeCampaignId = null;
+  currentScenes    = [...allScenes];
+  localStorage.setItem('dndcast_session', 'all');
+  sessionOverlay.hidden  = true;
+  campaignOverlay.hidden = true;
+  enterPlayer();
+}
+
+function enterPlayer() {
+  const savedIdx = parseInt(localStorage.getItem('dndcast_index_' + activeSessionId), 10);
+  const idx = (Number.isFinite(savedIdx) && savedIdx >= 0 && savedIdx < currentScenes.length) ? savedIdx : 0;
+  updateSessionLabel();
+  buildSceneList();
+  showControls();
+  goToScene(idx);
+}
+
+function updateSessionLabel() {
+  if (activeSessionId === 'all') { sessionLabel.textContent = 'All Scenes'; return; }
+  const session  = allSessions.find(s => s.id === activeSessionId);
+  const campaign = allCampaigns.find(c => c.id === activeCampaignId);
+  const parts    = [campaign?.title, session?.title].filter(Boolean);
+  sessionLabel.textContent = parts.join(' — ');
+}
+
+// --- Scene navigation ---
 async function goToScene(index) {
-  if (!scenes.length) return;
-  index = Math.max(0, Math.min(index, scenes.length - 1));
+  if (!currentScenes.length) return;
+  index = Math.max(0, Math.min(index, currentScenes.length - 1));
   currentIndex = index;
-  localStorage.setItem('dndcast_index', index);
+  localStorage.setItem('dndcast_index_' + activeSessionId, index);
 
-  const scene = scenes[index];
+  const scene = currentScenes[index];
   clearError();
 
-  // Update background image, guarded by generation so rapid switching always
-  // shows the last-requested scene rather than whichever image loads last
   const imgGen = ++imageGeneration;
-  loadSceneImage(scene.image, imgGen);
+  loadSceneImage(scene.image, imgGen, scene.title);
 
-  // Warm the next scene's image into browser cache
-  if (index + 1 < scenes.length && scenes[index + 1].image) {
-    new Image().src = scenes[index + 1].image;
+  // Warm the next scene's image into cache
+  if (index + 1 < currentScenes.length && currentScenes[index + 1].image) {
+    new Image().src = currentScenes[index + 1].image;
   }
 
-  titleOverlay.textContent  = scene.title || '';
-  notesContent.textContent  = scene.notes  || '(no notes for this scene)';
+  titleOverlay.textContent = scene.title || '';
+  notesContent.textContent = scene.notes || '(no notes for this scene)';
   updateSceneListHighlight();
 
   await switchAudio(scene);
 }
 
-function loadSceneImage(src, gen) {
+function loadSceneImage(src, gen, sceneTitle) {
   if (!src) {
-    if (gen === imageGeneration) sceneDisplay.style.backgroundImage = 'none';
+    // No image provided — show placeholder (intentional state, not an error)
+    if (gen === imageGeneration) {
+      sceneDisplay.style.backgroundImage = 'none';
+      showPlaceholder(sceneTitle, null);
+    }
     return;
   }
   const img = new Image();
-  img.onload  = () => {
-    if (gen === imageGeneration)
+  img.onload = () => {
+    if (gen === imageGeneration) {
+      hidePlaceholder();
       sceneDisplay.style.backgroundImage = 'url("' + escapeCssUrl(src) + '")';
+    }
   };
   img.onerror = () => {
     if (gen === imageGeneration) {
       sceneDisplay.style.backgroundImage = 'none';
-      showError('Image not found: ' + src);
+      showPlaceholder(sceneTitle, 'Image not found: ' + src);
     }
   };
   img.src = src;
 }
 
+function showPlaceholder(title, errorText) {
+  placeholderTitle.textContent = title || '';
+  placeholderError.textContent = errorText || '';
+  scenePlaceholder.hidden = false;
+}
+
+function hidePlaceholder() {
+  scenePlaceholder.hidden = true;
+}
+
 function changeScene(delta) {
-  if (!sessionStarted || !scenes.length) return;
+  if (!sessionStarted || !currentScenes.length) return;
   goToScene(currentIndex + delta);
 }
 
-// --- Audio -----------------------------------------------------------
-
+// --- Audio ---
 async function switchAudio(scene) {
   const gen  = ++audioGeneration;
   const prev = currentAudio;
   currentAudio = null;
 
-  // Fade out and release the previous track
   if (prev) {
     await fadeAudio(prev, 0, CONFIG.fadeMs);
     prev.pause();
     prev.src = '';
   }
-
-  // Bail if a newer switchAudio overtook this one
   if (gen !== audioGeneration) return;
 
+  // No audio field = silent scene; clear any stale error and exit cleanly
   if (!scene.audio) {
     updatePlayPauseBtn();
     return;
   }
 
-  const audio   = new Audio(scene.audio);
-  audio.loop    = scene.loopAudio !== false; // default true when omitted
-  audio.volume  = 0;
+  const audio  = new Audio(scene.audio);
+  audio.loop   = scene.loopAudio !== false;
+  audio.volume = 0;
   audio.onerror = () => {
     if (gen === audioGeneration) showError('Audio not found: ' + scene.audio);
   };
@@ -242,8 +388,6 @@ async function switchAudio(scene) {
   try {
     await audio.play();
   } catch (_) {
-    // Autoplay may be blocked if the browser didn't register this as a user gesture;
-    // the play button lets the DM start audio manually in that case
     if (gen === audioGeneration) showError('Tap ▶ to start audio (autoplay blocked).');
   }
 
@@ -253,37 +397,54 @@ async function switchAudio(scene) {
   }
 }
 
-function fadeAudio(audioEl, targetVol, durationMs) {
+function fadeAudio(audioEl, target, durationMs) {
   return new Promise(resolve => {
-    const startVol = audioEl.volume;
-    if (Math.abs(startVol - targetVol) < 0.001 || durationMs <= 0) {
-      audioEl.volume = targetVol;
+    const start = audioEl.volume;
+    if (Math.abs(start - target) < 0.001 || durationMs <= 0) {
+      audioEl.volume = target;
       return resolve();
     }
     const t0 = performance.now();
     function step(now) {
       const p = Math.min((now - t0) / durationMs, 1);
-      audioEl.volume = startVol + (targetVol - startVol) * p;
-      if (p < 1) {
-        requestAnimationFrame(step);
-      } else {
-        audioEl.volume = targetVol;
-        resolve();
-      }
+      audioEl.volume = start + (target - start) * p;
+      if (p < 1) requestAnimationFrame(step);
+      else { audioEl.volume = target; resolve(); }
     }
     requestAnimationFrame(step);
   });
 }
 
-// --- Control actions -------------------------------------------------
+// --- Scene list / drawer ---
+function buildSceneList() {
+  sceneList.innerHTML = '';
+  currentScenes.forEach((scene, i) => {
+    const li    = document.createElement('li');
+    const num   = document.createElement('span');
+    const label = document.createElement('span');
+    num.className   = 'scene-num';
+    num.textContent = i + 1;
+    label.textContent = scene.title || scene.id || 'Scene ' + (i + 1);
+    li.append(num, label);
+    li.addEventListener('click', () => { goToScene(i); closeDrawer(); });
+    sceneList.appendChild(li);
+  });
+}
 
+function updateSceneListHighlight() {
+  Array.from(sceneList.children).forEach((li, i) => {
+    li.classList.toggle('current', i === currentIndex);
+  });
+}
+
+function openDrawer()  { sceneDrawer.hidden = false; drawerBackdrop.hidden = false; }
+function closeDrawer() { sceneDrawer.hidden = true;  drawerBackdrop.hidden = true; }
+
+// --- Control actions ---
 function togglePlayPause() {
   if (!currentAudio) return;
-  if (currentAudio.paused) {
-    currentAudio.play().catch(() => {});
-  } else {
-    currentAudio.pause();
-  }
+  if (currentAudio.paused) currentAudio.play().catch(() => {});
+  else currentAudio.pause();
   updatePlayPauseBtn();
 }
 
@@ -294,16 +455,12 @@ function updatePlayPauseBtn() {
 }
 
 function toggleBlackout() {
-  blackoutActive       = !blackoutActive;
-  blackoutEl.hidden    = !blackoutActive;
+  blackoutActive    = !blackoutActive;
+  blackoutEl.hidden = !blackoutActive;
   blackoutBtn.classList.toggle('active', blackoutActive);
-
   if (CONFIG.blackoutPausesAudio && currentAudio) {
-    if (blackoutActive) {
-      currentAudio.pause();
-    } else {
-      currentAudio.play().catch(() => {});
-    }
+    if (blackoutActive) currentAudio.pause();
+    else currentAudio.play().catch(() => {});
     updatePlayPauseBtn();
   }
 }
@@ -331,15 +488,14 @@ function onVolumeChange() {
 
 function toggleFullscreen() {
   const el = document.documentElement;
-  if (!document.fullscreenElement && !document.webkitFullscreenElement) {
-    (el.requestFullscreen || el.webkitRequestFullscreen || function () {}).call(el);
-  } else {
-    (document.exitFullscreen || document.webkitExitFullscreen || function () {}).call(document);
-  }
+  if (!document.fullscreenElement && !document.webkitFullscreenElement)
+    (el.requestFullscreen || el.webkitRequestFullscreen || (() => {})).call(el);
+  else
+    (document.exitFullscreen || document.webkitExitFullscreen || (() => {})).call(document);
 }
 
 function updateFullscreenBtn() {
-  const isFs     = !!(document.fullscreenElement || document.webkitFullscreenElement);
+  const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement);
   fullscreenBtn.innerHTML = isFs ? '&#x2715;' : '&#x26F6;';
   fullscreenBtn.title     = isFs ? 'Exit fullscreen (F)' : 'Fullscreen (F)';
 }
@@ -353,22 +509,17 @@ function togglePresentation() {
 function applyPresentationMode() {
   document.body.classList.toggle('presentation-mode', presentationMode);
   presentBtn.classList.toggle('active', presentationMode);
-  if (presentationMode) {
-    clearTimeout(hideTimer);
-    controls.classList.add('hidden');
-  } else {
-    showControls();
-  }
+  if (presentationMode) { clearTimeout(hideTimer); controls.classList.add('hidden'); }
+  else showControls();
 }
 
 function toggleNotes() {
-  notesOpen             = !notesOpen;
-  notesContent.hidden   = !notesOpen;
+  notesOpen              = !notesOpen;
+  notesContent.hidden    = !notesOpen;
   notesToggleBtn.innerHTML = notesOpen ? 'Notes &#x25BE;' : 'Notes &#x25B8;';
 }
 
-// --- Controls visibility ---------------------------------------------
-
+// --- Auto-hide controls ---
 function onInteraction() {
   if (presentationMode) return;
   showControls();
@@ -380,49 +531,22 @@ function showControls() {
   hideTimer = setTimeout(() => controls.classList.add('hidden'), CONFIG.autoHideMs);
 }
 
-// --- Scene drawer ----------------------------------------------------
-
-function openDrawer() {
-  sceneDrawer.hidden    = false;
-  drawerBackdrop.hidden = false;
-}
-
-function closeDrawer() {
-  sceneDrawer.hidden    = true;
-  drawerBackdrop.hidden = true;
-}
-
-function updateSceneListHighlight() {
-  Array.from(sceneList.children).forEach((li, i) => {
-    li.classList.toggle('current', i === currentIndex);
-  });
-}
-
-// --- Keyboard shortcuts (desktop) ------------------------------------
-
+// --- Keyboard ---
 function onKeydown(e) {
   if (!sessionStarted) return;
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
   switch (e.key) {
-    case 'ArrowRight':
-    case ' ':
-      e.preventDefault();
-      changeScene(1);
-      break;
-    case 'ArrowLeft':
-      e.preventDefault();
-      changeScene(-1);
-      break;
-    case 'b': case 'B': toggleBlackout();     break;
-    case 'm': case 'M': toggleMute();          break;
-    case 'f': case 'F': toggleFullscreen();    break;
-    case 't': case 'T': toggleTitle();         break;
-    case 'p': case 'P': togglePresentation();  break;
+    case 'ArrowRight': case ' ': e.preventDefault(); changeScene(1);   break;
+    case 'ArrowLeft':            e.preventDefault(); changeScene(-1);  break;
+    case 'b': case 'B': toggleBlackout();    break;
+    case 'm': case 'M': toggleMute();        break;
+    case 'f': case 'F': toggleFullscreen();  break;
+    case 't': case 'T': toggleTitle();       break;
+    case 'p': case 'P': togglePresentation();break;
   }
 }
 
-// --- State persistence -----------------------------------------------
-
+// --- State persistence ---
 function loadState() {
   const v = parseFloat(localStorage.getItem('dndcast_volume'));
   if (!isNaN(v)) volume = Math.max(0, Math.min(1, v));
@@ -437,15 +561,18 @@ function loadState() {
   if (fit === 'cover' || fit === 'contain') CONFIG.objectFit = fit;
 }
 
-// --- Helpers ---------------------------------------------------------
-
+// --- Helpers ---
 function showError(msg) { errorMsg.textContent = msg; }
 function clearError()   { errorMsg.textContent = ''; }
 
-// Escape characters that would break a CSS url() value
 function escapeCssUrl(src) {
   return src.replace(/\\/g, '/').replace(/"/g, '%22').replace(/'/g, '%27');
 }
 
-// --- Go --------------------------------------------------------------
+function escHtml(str) {
+  return String(str)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
 init();

@@ -1,0 +1,8 @@
+[
+  {
+    "id": "cos-session-1",
+    "campaignId": "curse-of-strahd",
+    "title": "Session 1 — Arrival in Barovia",
+    "scenes": ["tavern", "forest-road", "goblin-ambush"]
+  }
+]

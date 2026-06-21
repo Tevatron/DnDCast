@@ -1,0 +1,20 @@
+# ── Live data files (edit these regularly, do not commit) ─────────────
+scenes.json
+sessions.json
+campaigns.json
+
+# ── Media assets (large binary files, manage outside git) ──────────────
+assets/images/*
+assets/audio/*
+
+# Keep the directory placeholders
+!assets/images/.gitkeep
+!assets/audio/.gitkeep
+
+# ── OS / editor noise ──────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Node (if you ever use npx serve or similar) ────────────────────────
+node_modules/

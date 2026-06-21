@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DnDCast Editor</title>
+  <link rel="stylesheet" href="editor.css">
+</head>
+<body>
+
+  <!-- ── Header ──────────────────────────────────────────────────── -->
+  <header id="editor-header">
+    <span class="app-name">DnD<span>Cast</span> <em>Editor</em></span>
+
+    <nav id="tabs">
+      <button class="tab-btn active" data-tab="scenes">Scenes</button>
+      <button class="tab-btn" data-tab="sessions">Sessions</button>
+      <button class="tab-btn" data-tab="campaigns">Campaigns</button>
+    </nav>
+
+    <div class="header-actions">
+      <button id="open-btn">Open Project</button>
+      <button id="save-btn" class="btn-primary">Save</button>
+      <a href="index.html" class="player-link">&#x25B6; Player</a>
+    </div>
+  </header>
+
+  <!-- ── Status bar ───────────────────────────────────────────────── -->
+  <div id="status-bar" hidden></div>
+
+  <!-- ── Main content ─────────────────────────────────────────────── -->
+  <main id="editor-main">
+
+    <!-- ── Scenes tab ─────────────────────────────────────────────── -->
+    <div class="tab-panel" id="tab-scenes">
+      <div class="list-panel">
+        <div class="panel-header">
+          <h2>Scenes</h2>
+          <button id="add-scene-btn" class="btn-add">+ Add Scene</button>
+        </div>
+        <div id="scenes-empty" class="empty-state" hidden>No scenes yet. Click + Add Scene to create one.</div>
+        <ul id="scenes-list"></ul>
+      </div>
+      <div class="edit-panel" id="scene-edit-panel" hidden>
+        <div class="edit-panel-header">
+          <h3 id="scene-edit-heading">Edit Scene</h3>
+          <button class="close-edit-btn" data-panel="scene-edit-panel">&#x2715;</button>
+        </div>
+        <form id="scene-form" autocomplete="off">
+          <label class="field-label">
+            Title
+            <input type="text" name="title" placeholder="Scene title" required>
+          </label>
+          <label class="field-label">
+            ID <span class="field-hint">(unique identifier, no spaces)</span>
+            <input type="text" name="id" placeholder="scene-id" required pattern="[a-z0-9\-_]+">
+          </label>
+          <div class="field-label">
+            Image path <span class="field-hint">(leave blank for text placeholder)</span>
+            <div class="path-row">
+              <input type="text" name="image" placeholder="assets/images/scene.jpg">
+              <button type="button" class="browse-btn" data-field="image" data-type="image">Browse</button>
+            </div>
+          </div>
+          <div class="field-label">
+            Audio path <span class="field-hint">(leave blank for silent scene)</span>
+            <div class="path-row">
+              <input type="text" name="audio" placeholder="assets/audio/track.mp3">
+              <button type="button" class="browse-btn" data-field="audio" data-type="audio">Browse</button>
+            </div>
+          </div>
+          <label class="field-label">
+            DM Notes <span class="field-hint">(visible in the control panel)</span>
+            <textarea name="notes" rows="3" placeholder="Private notes for the DM..."></textarea>
+          </label>
+          <label class="field-label">
+            DM Script <span class="field-hint">(display location TBD)</span>
+            <textarea name="dmScript" rows="4" placeholder="Read-aloud text or scene description..."></textarea>
+          </label>
+          <label class="checkbox-label">
+            <input type="checkbox" name="loopAudio" checked>
+            Loop audio
+          </label>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Save Scene</button>
+            <button type="button" id="delete-scene-btn" class="btn-danger">Delete</button>
+            <button type="button" class="close-edit-btn btn-ghost" data-panel="scene-edit-panel">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- ── Sessions tab ───────────────────────────────────────────── -->
+    <div class="tab-panel" id="tab-sessions" hidden>
+      <div class="list-panel">
+        <div class="panel-header">
+          <h2>Sessions</h2>
+          <button id="add-session-btn" class="btn-add">+ Add Session</button>
+        </div>
+        <div id="sessions-empty" class="empty-state" hidden>No sessions yet. Click + Add Session to create one.</div>
+        <ul id="sessions-list"></ul>
+      </div>
+      <div class="edit-panel" id="session-edit-panel" hidden>
+        <div class="edit-panel-header">
+          <h3 id="session-edit-heading">Edit Session</h3>
+          <button class="close-edit-btn" data-panel="session-edit-panel">&#x2715;</button>
+        </div>
+        <form id="session-form" autocomplete="off">
+          <label class="field-label">
+            Title
+            <input type="text" name="title" placeholder="Session title" required>
+          </label>
+          <label class="field-label">
+            ID <span class="field-hint">(unique identifier)</span>
+            <input type="text" name="id" placeholder="session-id" required pattern="[a-z0-9\-_]+">
+          </label>
+          <label class="field-label">
+            Campaign
+            <select name="campaignId" id="session-campaign-select">
+              <option value="">(none)</option>
+            </select>
+          </label>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Save Session</button>
+            <button type="button" id="delete-session-btn" class="btn-danger">Delete</button>
+            <button type="button" class="close-edit-btn btn-ghost" data-panel="session-edit-panel">Cancel</button>
+          </div>
+        </form>
+
+        <!-- Scene list manager (separate from the session form) -->
+        <div id="session-scenes-section">
+          <h4 class="section-heading">Scenes in this session</h4>
+          <div id="session-scene-empty" class="empty-state small" hidden>No scenes added yet.</div>
+          <ul id="session-scene-list"></ul>
+          <div class="add-scene-row">
+            <select id="add-scene-select">
+              <option value="">— add a scene —</option>
+            </select>
+            <button type="button" id="add-scene-to-session-btn" class="btn-add small">Add</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Campaigns tab ──────────────────────────────────────────── -->
+    <div class="tab-panel" id="tab-campaigns" hidden>
+      <div class="list-panel">
+        <div class="panel-header">
+          <h2>Campaigns</h2>
+          <button id="add-campaign-btn" class="btn-add">+ Add Campaign</button>
+        </div>
+        <div id="campaigns-empty" class="empty-state" hidden>No campaigns yet. Click + Add Campaign to create one.</div>
+        <ul id="campaigns-list"></ul>
+      </div>
+      <div class="edit-panel" id="campaign-edit-panel" hidden>
+        <div class="edit-panel-header">
+          <h3 id="campaign-edit-heading">Edit Campaign</h3>
+          <button class="close-edit-btn" data-panel="campaign-edit-panel">&#x2715;</button>
+        </div>
+        <form id="campaign-form" autocomplete="off">
+          <label class="field-label">
+            Title
+            <input type="text" name="title" placeholder="Campaign title" required>
+          </label>
+          <label class="field-label">
+            ID <span class="field-hint">(unique identifier)</span>
+            <input type="text" name="id" placeholder="campaign-id" required pattern="[a-z0-9\-_]+">
+          </label>
+          <label class="field-label">
+            Description <span class="field-hint">(shown in the session picker)</span>
+            <textarea name="description" rows="2" placeholder="Short description..."></textarea>
+          </label>
+          <div class="form-actions">
+            <button type="submit" class="btn-primary">Save Campaign</button>
+            <button type="button" id="delete-campaign-btn" class="btn-danger">Delete</button>
+            <button type="button" class="close-edit-btn btn-ghost" data-panel="campaign-edit-panel">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- ── File input fallback modal (non-FSA browsers) ─────────────── -->
+  <div id="open-modal" hidden>
+    <div class="modal-backdrop"></div>
+    <div class="modal-box">
+      <h3>Load Project Files</h3>
+      <p class="modal-note">Select your JSON files below. Leave any field empty to skip that file.</p>
+      <label class="field-label">scenes.json <input type="file" id="scenes-file-input" accept=".json"></label>
+      <label class="field-label">sessions.json <input type="file" id="sessions-file-input" accept=".json"></label>
+      <label class="field-label">campaigns.json <input type="file" id="campaigns-file-input" accept=".json"></label>
+      <p class="modal-tip">&#128161; Use Chrome or Edge for direct folder access — no manual downloads needed.</p>
+      <div class="modal-actions">
+        <button id="open-confirm-btn" class="btn-primary">Load Files</button>
+        <button id="open-cancel-btn" class="btn-ghost">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="editor.js"></script>
+</body>
+</html>

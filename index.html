@@ -8,7 +8,7 @@
 </head>
 <body>
 
-  <!-- Start Session overlay — covers everything until the user taps -->
+  <!-- ── Start Session overlay ─────────────────────────────────── -->
   <div id="start-overlay">
     <div id="start-box">
       <h1>DnD<span>Cast</span></h1>
@@ -17,39 +17,65 @@
     </div>
   </div>
 
-  <!-- Fullscreen scene background image -->
+  <!-- ── Campaign picker ───────────────────────────────────────── -->
+  <div id="campaign-overlay" hidden>
+    <div class="picker-box">
+      <h2 class="picker-heading">Select Campaign</h2>
+      <ul id="campaign-list"></ul>
+    </div>
+  </div>
+
+  <!-- ── Session picker ────────────────────────────────────────── -->
+  <div id="session-overlay" hidden>
+    <div class="picker-box">
+      <h2 class="picker-heading">Select Session</h2>
+      <ul id="session-picker-list"></ul>
+    </div>
+  </div>
+
+  <!-- ── Scene background ──────────────────────────────────────── -->
   <div id="scene-display"></div>
 
-  <!-- Blackout overlay — plain black screen -->
+  <!-- ── Placeholder: shown when image is absent or fails ──────── -->
+  <div id="scene-placeholder" hidden>
+    <div id="placeholder-content">
+      <div id="placeholder-title"></div>
+      <div id="placeholder-error"></div>
+    </div>
+  </div>
+
+  <!-- ── Blackout ──────────────────────────────────────────────── -->
   <div id="blackout" hidden></div>
 
-  <!-- Invisible left/right tap zones for previous/next scene -->
+  <!-- ── Invisible tap zones for prev / next ───────────────────── -->
   <div id="tap-prev" role="button" aria-label="Previous scene"></div>
   <div id="tap-next" role="button" aria-label="Next scene"></div>
 
-  <!-- Subtle scene title shown in bottom-left -->
+  <!-- ── Scene title overlay ───────────────────────────────────── -->
   <div id="title-overlay" class="hidden"></div>
 
-  <!-- Controls panel — auto-hides after inactivity -->
+  <!-- ── Controls panel ────────────────────────────────────────── -->
   <div id="controls">
 
-    <!-- DM notes (collapsible) and error display -->
-    <div id="notes-row">
+    <!-- Info row: notes toggle · session label · errors -->
+    <div id="info-row">
       <button id="notes-toggle-btn" class="text-btn">Notes &#x25B8;</button>
+      <span id="session-label"></span>
       <span id="error-msg"></span>
     </div>
     <div id="notes-content" hidden></div>
 
-    <!-- Main control buttons -->
+    <!-- Main buttons -->
     <div id="btn-row">
-      <button id="prev-btn"       title="Previous scene (&#x2190;)">&#x23EE;</button>
-      <button id="scenes-btn"     title="Scene list">&#x2630;</button>
-      <button id="play-pause-btn" title="Pause / Resume">&#x25B6;</button>
-      <button id="next-btn"       title="Next scene (&#x2192; or Space)">&#x23ED;</button>
-      <button id="blackout-btn"   title="Blackout (B)">&#x25CF;</button>
-      <button id="title-btn"      title="Toggle title (T)">T</button>
-      <button id="fullscreen-btn" title="Fullscreen (F)">&#x26F6;</button>
-      <button id="present-btn"    title="Presentation mode — hide all controls (P)">&#x25A1;</button>
+      <button id="prev-btn"            title="Previous scene (&#x2190;)">&#x23EE;</button>
+      <button id="scenes-btn"          title="Scene list">&#x2630;</button>
+      <button id="play-pause-btn"      title="Pause / Resume">&#x25B6;</button>
+      <button id="next-btn"            title="Next scene (&#x2192; or Space)">&#x23ED;</button>
+      <button id="blackout-btn"        title="Blackout (B)">&#x25CF;</button>
+      <button id="title-btn"           title="Toggle title (T)">T</button>
+      <button id="fullscreen-btn"      title="Fullscreen (F)">&#x26F6;</button>
+      <button id="present-btn"         title="Presentation mode (P)">&#x25A1;</button>
+      <button id="switch-session-btn"  title="Switch session">&#x21BA;</button>
       <label id="vol-label" title="Volume">
         <span>&#x1F50A;</span>
         <input type="range" id="volume-slider" min="0" max="1" step="0.05" value="1">
@@ -58,10 +84,10 @@
 
   </div>
 
-  <!-- Small dot visible in presentation mode — tap to show controls -->
+  <!-- ── Presentation mode re-show dot ─────────────────────────── -->
   <div id="present-dot" role="button" aria-label="Show controls" title="Tap to show controls"></div>
 
-  <!-- Scene list drawer -->
+  <!-- ── Scene list drawer ─────────────────────────────────────── -->
   <div id="drawer-backdrop" hidden></div>
   <div id="scene-drawer" hidden>
     <div id="drawer-header">
@@ -69,6 +95,9 @@
       <button id="close-drawer-btn" title="Close">&#x2715;</button>
     </div>
     <ul id="scene-list"></ul>
+    <div id="drawer-footer">
+      <a href="editor.html" class="editor-link">&#x270F; Edit Scenes &amp; Sessions</a>
+    </div>
   </div>
 
   <script src="app.js"></script>
