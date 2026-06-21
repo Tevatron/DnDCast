@@ -1,0 +1,7 @@
+# Normalize all text files to LF on commit and checkout.
+# Web projects use LF; this overrides core.autocrlf for everyone who clones.
+* text=auto eol=lf
+
+# Windows batch files need CRLF to run correctly.
+*.bat text eol=crlf
+*.cmd text eol=crlf
