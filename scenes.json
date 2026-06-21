@@ -1,0 +1,26 @@
+[
+  {
+    "id": "tavern",
+    "title": "The Rusty Lantern Tavern",
+    "image": "assets/images/tavern.jpg",
+    "audio": "assets/audio/tavern-ambience.mp3",
+    "notes": "Warm intro scene. Let players talk to the innkeeper.",
+    "loopAudio": true
+  },
+  {
+    "id": "forest-road",
+    "title": "Moonlit Forest Road",
+    "image": "assets/images/forest-road.jpg",
+    "audio": "assets/audio/forest-night.mp3",
+    "notes": "Transition scene before the ambush.",
+    "loopAudio": true
+  },
+  {
+    "id": "goblin-ambush",
+    "title": "Goblin Ambush",
+    "image": "assets/images/goblin-ambush.jpg",
+    "audio": "assets/audio/battle-drums.mp3",
+    "notes": "Roll initiative.",
+    "loopAudio": true
+  }
+]
