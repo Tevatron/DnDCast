@@ -120,14 +120,9 @@
               <option value="">(none)</option>
             </select>
           </label>
-          <div class="form-actions">
-            <button type="submit" class="btn-primary">Save Session</button>
-            <button type="button" id="delete-session-btn" class="btn-danger">Delete</button>
-            <button type="button" class="close-edit-btn btn-ghost" data-panel="session-edit-panel">Cancel</button>
-          </div>
         </form>
 
-        <!-- Scene list manager (separate from the session form) -->
+        <!-- Scene list manager -->
         <div id="session-scenes-section">
           <h4 class="section-heading">Scenes in this session</h4>
           <div id="session-scene-empty" class="empty-state small" hidden>No scenes added yet.</div>
@@ -138,6 +133,13 @@
             </select>
             <button type="button" id="add-scene-to-session-btn" class="btn-add small">Add</button>
           </div>
+        </div>
+
+        <!-- Actions sit below the scene list -->
+        <div class="form-actions" style="margin-top:1rem">
+          <button type="submit" form="session-form" class="btn-primary">Save Session</button>
+          <button type="button" id="delete-session-btn" class="btn-danger">Delete</button>
+          <button type="button" class="close-edit-btn btn-ghost" data-panel="session-edit-panel">Cancel</button>
         </div>
       </div>
     </div>

@@ -200,14 +200,22 @@ function readFileInput(input) {
   });
 }
 
+// Called by the manual Save button — always persists, shows feedback on the button.
 async function saveProject() {
   if (dirHandle) {
     await saveWithFSA();
   } else {
     downloadAll();
-    showStatus('Downloaded 3 files. Replace them in your project folder.', 'info');
+    flashSaveBtn('Downloaded');
   }
   isDirty = false;
+}
+
+// Called automatically after every item save. With FSA: silent write.
+// Without FSA: nothing — the manual Save button handles it for that path.
+async function autoSave() {
+  if (!dirHandle) return;
+  await saveWithFSA();
 }
 
 async function saveWithFSA() {
@@ -222,11 +230,17 @@ async function saveWithFSA() {
       writeJsonToDir(dirHandle, 'sessions.json',  editorSessions),
       writeJsonToDir(dirHandle, 'campaigns.json', editorCampaigns),
     ]);
-    showStatus('Saved to project folder.', 'success');
+    flashSaveBtn('Saved ✓');
   } catch (e) {
     showStatus('Write failed — downloading instead. ' + e.message, 'error');
     downloadAll();
   }
+}
+
+function flashSaveBtn(text) {
+  const orig = saveBtn.textContent;
+  saveBtn.textContent = text;
+  setTimeout(() => { saveBtn.textContent = orig; }, 2000);
 }
 
 function downloadAll() {
@@ -372,8 +386,9 @@ function saveScene() {
 
   isDirty = true;
   sceneEditPanel.hidden = true;
+  editingSceneIdx = null;
   renderScenes();
-  showStatus('Scene saved.', 'success');
+  autoSave();
 }
 
 function deleteScene() {
@@ -387,8 +402,8 @@ function deleteScene() {
   sceneEditPanel.hidden = true;
   editingSceneIdx = null;
   renderScenes();
-  renderSessions(); // refresh broken-ref badges
-  showStatus('Scene deleted.', 'success');
+  renderSessions();
+  autoSave();
 }
 
 // === Sessions =========================================================
@@ -464,8 +479,9 @@ function saveSession() {
 
   isDirty = true;
   sessionEditPanel.hidden = true;
+  editingSessionIdx = null;
   renderSessions();
-  showStatus('Session saved.', 'success');
+  autoSave();
 }
 
 function deleteSession() {
@@ -477,7 +493,7 @@ function deleteSession() {
   sessionEditPanel.hidden = true;
   editingSessionIdx = null;
   renderSessions();
-  showStatus('Session deleted.', 'success');
+  autoSave();
 }
 
 function renderSessionSceneList() {
@@ -633,8 +649,9 @@ function saveCampaign() {
 
   isDirty = true;
   campaignEditPanel.hidden = true;
+  editingCampaignIdx = null;
   renderCampaigns();
-  showStatus('Campaign saved.', 'success');
+  autoSave();
 }
 
 function deleteCampaign() {
@@ -649,7 +666,7 @@ function deleteCampaign() {
   editingCampaignIdx = null;
   renderCampaigns();
   renderSessions();
-  showStatus('Campaign deleted.', 'success');
+  autoSave();
 }
 
 // === Helpers ==========================================================
