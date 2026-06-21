@@ -3,6 +3,8 @@
 // Admin editor for scenes, sessions, and campaigns.
 // =====================================================================
 
+import { filterList } from './js/utils.js';
+
 // === State ============================================================
 
 let editorScenes    = [];
@@ -47,8 +49,8 @@ const deleteSessionBtn     = $('delete-session-btn');
 const sessionCampaignSelect= $('session-campaign-select');
 const sessionSceneList     = $('session-scene-list');
 const sessionSceneEmpty    = $('session-scene-empty');
-const addSceneSelect       = $('add-scene-select');
-const addSceneToSessionBtn = $('add-scene-to-session-btn');
+const scenePicker          = $('scene-picker-panel');
+const scenePickerSearch    = $('scene-picker-search');
 
 // Campaigns
 const addCampaignBtn      = $('add-campaign-btn');
@@ -94,7 +96,7 @@ function init() {
   addSessionBtn.addEventListener('click', () => openSessionEdit(null));
   sessionForm.addEventListener('submit', e => { e.preventDefault(); saveSession(); });
   deleteSessionBtn.addEventListener('click', deleteSession);
-  addSceneToSessionBtn.addEventListener('click', addSceneToSession);
+  scenePickerSearch.addEventListener('input', filterScenePicker);
 
   // Auto-slugify session title → id
   const sessionTitle = sessionForm.querySelector('[name="title"]');
@@ -451,8 +453,8 @@ function openSessionEdit(idx) {
   sessionCampaignSelect.value = session.campaignId || '';
 
   editingSessionScenes = Array.isArray(session.scenes) ? [...session.scenes] : [];
+  renderScenePicker();
   renderSessionSceneList();
-  populateAddSceneDropdown();
 
   sessionEditPanel.hidden = false;
 }
@@ -541,26 +543,54 @@ function renderSessionSceneList() {
     sessionSceneList.appendChild(li);
   });
 
-  populateAddSceneDropdown();
+  updatePickerCheckboxes();
 }
 
-function populateAddSceneDropdown() {
-  addSceneSelect.innerHTML = '<option value="">— add a scene —</option>';
-  editorScenes
-    .filter(s => !editingSessionScenes.includes(s.id))
-    .forEach(s => {
-      const opt = document.createElement('option');
-      opt.value       = s.id;
-      opt.textContent = s.title || s.id;
-      addSceneSelect.appendChild(opt);
+function filterScenePicker() { filterList(scenePickerSearch, scenePicker, '.picker-row'); }
+
+// Build the full checkbox picker — called once when the session editor opens.
+// Preserves scroll position on reorder by only syncing checkbox state after that.
+function renderScenePicker() {
+  scenePickerSearch.value = '';
+  scenePicker.innerHTML = '';
+  if (!editorScenes.length) {
+    const empty = document.createElement('p');
+    empty.className   = 'empty-state small';
+    empty.textContent = 'No scenes exist yet. Create scenes first.';
+    scenePicker.appendChild(empty);
+    return;
+  }
+  editorScenes.forEach(scene => {
+    const row = document.createElement('label');
+    row.className = 'picker-row';
+
+    const cb = document.createElement('input');
+    cb.type  = 'checkbox';
+    cb.value = scene.id;
+    cb.checked = editingSessionScenes.includes(scene.id);
+    cb.addEventListener('change', () => {
+      if (cb.checked) {
+        if (!editingSessionScenes.includes(scene.id)) editingSessionScenes.push(scene.id);
+      } else {
+        const i = editingSessionScenes.indexOf(scene.id);
+        if (i !== -1) editingSessionScenes.splice(i, 1);
+      }
+      renderSessionSceneList();
     });
+
+    const label = document.createElement('span');
+    label.textContent = scene.title || scene.id;
+
+    row.append(cb, label);
+    scenePicker.appendChild(row);
+  });
 }
 
-function addSceneToSession() {
-  const id = addSceneSelect.value;
-  if (!id) return;
-  editingSessionScenes.push(id);
-  renderSessionSceneList();
+// Sync checked state without rebuilding — keeps scroll position intact.
+function updatePickerCheckboxes() {
+  scenePicker.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+    cb.checked = editingSessionScenes.includes(cb.value);
+  });
 }
 
 function removeSceneFromSession(idx) {

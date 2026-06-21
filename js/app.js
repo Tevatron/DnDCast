@@ -14,6 +14,7 @@
 import { CONFIG } from './config.js';
 import { AudioController } from './audio.js';
 import { createSync } from './sync.js';
+import { filterList } from './utils.js';
 
 // ── Role ─────────────────────────────────────────────────────────────
 const role = new URLSearchParams(location.search).get('role') === 'dm' ? 'dm' : 'player';
@@ -532,12 +533,7 @@ function closeDrawer() {
   filterDrawer();
 }
 
-function filterDrawer() {
-  const q = drawerSearch.value.trim().toLowerCase();
-  Array.from(sceneList.children).forEach(li => {
-    li.hidden = q !== '' && !li.textContent.toLowerCase().includes(q);
-  });
-}
+function filterDrawer() { filterList(drawerSearch, sceneList, 'li'); }
 
 // ── Control actions ──────────────────────────────────────────────────
 function togglePlayPause() {
