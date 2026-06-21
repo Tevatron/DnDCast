@@ -1,152 +1,129 @@
-# DnDCast — DM Scene Player
+# DnDCast
 
-A browser-based fullscreen scene player for D&D sessions. Show ambient artwork and play music for each scene. Control it from your phone and mirror the screen to your TV.
-
----
-
-## Quick Start (Local Hosting on Windows)
-
-Run one of these commands in the `DnDCast` folder:
-
-**Option A — Python (usually pre-installed):**
-```
-python -m http.server 8080
-```
-
-**Option B — Node.js:**
-```
-npx serve .
-```
-
-Then open in your browser:
-```
-http://localhost:8080
-```
-
-> **Note:** the app loads as ES modules, so it must be served over `http://`
-> (the dev server above) — opening the `.html` files via `file://` won't work.
+A browser-based D&D session player. Show fullscreen scene art, play ambient audio, and control everything from a private DM tab — with real-time sync to a cast display on any device.
 
 ---
 
-## The Three Modes
+## First-time setup
 
-Opening `http://localhost:8080` shows a **home page** with three modes:
+Requires [Node.js](https://nodejs.org) (v14+).
 
-1. **Player** (`player.html`) — displays scene art and plays audio. This is the
-   tab you cast to the TV. On its own it works exactly like before; when a DM
-   tab is open, it follows the DM.
-2. **DM Control** (`player.html?role=dm`) — your private control surface. Same
-   controls as the player, plus a readable **notes + script overlay** over the
-   art. Every action (scene change, play/pause, volume, blackout…) is sent to
-   the Player tab. This tab is muted by default and is **not** meant to be cast.
-3. **Editor** (`editor.html`) — create and edit campaigns, sessions, and scenes.
+```
+npm install
+node setup.js
+```
 
-### Running DM + Player together (recommended)
-The DM and Player tabs talk to each other directly via the browser
-(BroadcastChannel) — **no server beyond the static file host**. They must be in
-the **same browser on the same machine**:
-
-1. Open **Player** in one tab and **DM Control** in another (same Chrome/Edge).
-2. Tap **Start Session** in both. In the DM tab, pick a campaign/session.
-3. Cast only the Player tab: **Chrome menu → Cast… → Sources → Cast tab**, then
-   pick your Samsung TV (or a Chromecast). The DM tab stays private on your PC.
-4. Drive everything from the DM tab. Use **🔊 Listen here** in the DM tab if you
-   also want to hear the audio locally; otherwise only the cast tab makes sound.
-
-> Cross-device control (DM on a different device than the Player) would require
-> a relay server and is intentionally out of scope for this static-site setup.
+`setup.js` asks you to choose a password. It writes a `config.json` with your hashed password and a session secret. This file is gitignored — never commit it.
 
 ---
 
-## Connecting from Your Phone (Same Wi-Fi)
+## Starting the server
 
-1. Start the local server on your PC (above).
-2. Find your PC's local IP address:
+```
+npm start
+```
+
+Open `http://localhost:3000` in your browser. You'll be prompted for your password on first visit.
+
+---
+
+## The three modes
+
+The home page offers three modes:
+
+| Mode | URL | Purpose |
+|------|-----|---------|
+| **Cast** | `player.html` | Displays scene art and plays audio. This is the tab you display on the TV. |
+| **DM Control** | `player.html?role=dm` | Your private control surface. Same controls as Cast plus a notes/script overlay. Muted by default. Every action syncs to the Cast tab in real time. |
+| **Editor** | `editor.html` | Create and manage campaigns, sessions, and scenes. |
+
+---
+
+## Running a session
+
+### Option A — Two tabs, same browser (Chrome Tab Cast)
+
+1. Open **Cast** in one tab and **DM Control** in another (same Chrome window).
+2. Click **Start Session** in both tabs.
+3. In the DM tab, pick a campaign and session.
+4. Cast only the Cast tab to your TV: **Chrome menu → Cast… → Sources → Cast tab**.
+5. Drive everything from the DM tab. The Cast tab follows automatically.
+
+### Option B — Separate devices (TV native browser or second PC)
+
+1. Expose the server with a public URL (see below).
+2. On the TV browser (or second device), navigate to your URL and log in.
+3. Open the Cast page. Click Start Session.
+4. On your laptop, open DM Control and start your session.
+5. Both devices connect to the same WebSocket server and sync automatically.
+
+> **DM audio:** The DM tab is muted by default so only the Cast tab makes sound. Click **🔊 Listen here** in the DM toolbar if you want to hear audio locally too.
+
+---
+
+## Exposing publicly (Cloudflare Tunnel)
+
+To access DnDCast from other devices or over the internet without port-forwarding:
+
+1. Install [`cloudflared`](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/).
+2. With the server running, open a second terminal and run:
    ```
-   ipconfig
+   cloudflared tunnel --url http://localhost:3000
    ```
-   Look for `IPv4 Address` under your Wi-Fi adapter — something like `192.168.1.23`.
+3. Cloudflare prints a public HTTPS URL (e.g. `https://random-words.trycloudflare.com`). Share it with anyone who needs access.
 
-3. On your phone (connected to the same Wi-Fi), open:
-   ```
-   http://192.168.1.23:8080
-   ```
-   Replace `192.168.1.23` with your actual PC IP.
-
-**If the page won't load:**
-- Make sure your PC and phone are on the same Wi-Fi network.
-- Check that Windows Firewall is not blocking Python or Node on port 8080.
-  - Go to: Windows Security → Firewall → Allow an app → add Python or Node.
-- Try a different port like `3000` or `5173`.
-- Do not use `localhost` from your phone — that refers to the phone itself.
+For a persistent custom URL (e.g. `dndcast.yourdomain.com`), set up a named tunnel in the Cloudflare dashboard.
 
 ---
 
-## Phone → Samsung TV Setup
+## Adding content
 
-1. Open the app on your phone using the PC's local IP.
-2. Tap **Start Session** to unlock audio playback.
-3. Turn on **Do Not Disturb** on your phone to avoid notifications during the session.
-4. Set your phone to **landscape orientation** (rotate the phone sideways).
-5. Keep the screen awake — see the note below.
-6. Mirror or cast your phone screen to the Samsung TV:
-   - **Android:** Use *Screen Mirror*, *Smart View*, or *Quick Connect* in the notification shade or Settings.
-   - **iOS:** Use *Screen Mirroring* from Control Center if your Samsung TV supports AirPlay.
-7. Tap **□** (presentation mode button) in the app to hide all controls for a clean TV view.
-8. Tap the small **gold dot** in the top-right corner to bring controls back.
+Use the **Editor** to create campaigns, sessions, and scenes. All data is saved to the server automatically when you save a scene, session, or campaign.
 
-> **Keep Awake:** Mobile browsers may lock the screen during long sessions and interrupt audio. Before your session, disable auto-lock in your phone settings, or use a keep-awake app or browser extension (search "keep awake" in your phone's app store).
+**To add images and audio:**
+1. Open the Editor and create or edit a scene.
+2. Click **Browse** next to the Image or Audio field.
+3. Pick any file from your machine — it uploads to the server and the path is filled in automatically.
 
----
-
-## Adding Your Own Scenes
-
-1. Drop image files into `assets/images/` and audio files into `assets/audio/`.
-2. Edit `scenes.json` to add or change scenes. Each scene:
-
-```json
-{
-  "id": "my-scene",
-  "title": "Scene Title",
-  "image": "assets/images/my-scene.jpg",
-  "audio": "assets/audio/my-track.mp3",
-  "notes": "DM notes — only visible in the control panel.",
-  "loopAudio": true
-}
-```
-
-- `id` — unique identifier (no spaces)
-- `title` — displayed as the scene title overlay
-- `image` — path to image (JPG, PNG, WebP)
-- `audio` — path to audio (MP3, OGG, WAV)
-- `notes` — private DM notes, hidden in presentation mode
-- `loopAudio` — `true` to loop, `false` to play once (default: `true`)
+Asset files are stored in `assets/images/` and `assets/audio/` on the server machine. These are gitignored.
 
 ---
 
 ## Controls
 
+### Primary toolbar (always visible)
+
 | Button | Action |
 |--------|--------|
-| ⏮ | Previous scene |
-| ☰ | Open scene list |
+| ⏹ | Stop session and return home |
+| ⏮ | Previous scene (`←`) |
 | ▶ / ⏸ | Play / Pause audio |
-| ⏭ | Next scene |
-| ● | Blackout screen |
-| T | Toggle scene title overlay |
-| ⛶ | Fullscreen |
-| □ | Presentation mode (hide all controls) |
+| ⏭ | Next scene (`→` or `Space`) |
+| ☰ | Open scene list (type to filter) |
 | Slider | Volume |
+| ⋯ | More options (overflow menu) |
+| ⛶ | Fullscreen (`F`) |
 
-**Tap the left or right 30% of the screen** to go to the previous or next scene (works when controls are hidden).
+### Overflow menu (⋯)
 
-**Tap anywhere** to show controls (they auto-hide after 3 seconds).
+| Button | Action |
+|--------|--------|
+| ● | Blackout screen (`B`) |
+| T | Toggle scene title overlay (`T`) |
+| ↺ | Switch session |
+| □ | Presentation mode — hides all controls (`P`) |
 
-**Tap the gold dot** (top-right) to exit presentation mode.
+### DM-only toolbar buttons
 
-**Notes ▸** — expand DM notes for the current scene.
+| Button | Action |
+|--------|--------|
+| 📖 | Toggle notes/script overlay (`N`) |
+| 🔇 / 🔊 | Silence / listen locally |
+| ⊘ | Stage mode — suspends cast updates (`Z`) |
 
-### Keyboard Shortcuts (Desktop)
+**Stage mode:** While staged, you can freely navigate scenes on the DM tab without updating the Cast display. Disabling stage mode immediately pushes your current state to Cast.
+
+### Keyboard shortcuts
 
 | Key | Action |
 |-----|--------|
@@ -157,92 +134,35 @@ the **same browser on the same machine**:
 | `F` | Fullscreen |
 | `T` | Toggle title overlay |
 | `P` | Presentation mode |
-
----
-
-## Global Settings
-
-Edit the `CONFIG` block at the top of `app.js`:
-
-```js
-const CONFIG = {
-  fadeMs: 600,               // audio crossfade duration in ms
-  autoHideMs: 3000,          // ms before controls auto-hide
-  objectFit: 'cover',        // 'cover' or 'contain' for scene images
-  blackoutPausesAudio: true, // false = audio continues during blackout
-};
-```
-
-To permanently change the image fit, edit `objectFit` here. You can also temporarily override it by running in the browser console:
-```js
-localStorage.setItem('dndcast_objectFit', 'contain');
-location.reload();
-```
-
----
-
-## Cloud Deployment (Optional)
-
-The app is a static site with no backend, so it deploys anywhere that serves static files.
-
-> **Note:** Audio and images must be included in your repository or served from the same host. Large files may hit platform size limits.
-
-### GitHub Pages
-
-1. Push the project to a GitHub repository.
-2. Go to Settings → Pages → Branch: `main`, folder: `/ (root)`.
-3. The app will be live at `https://yourusername.github.io/repository-name/`.
-
-### Cloudflare Pages
-
-1. Push the project to GitHub or GitLab.
-2. In the Cloudflare dashboard → Workers & Pages → Create → Connect to Git.
-3. Set build command to *(empty)* and output directory to `/`.
-4. Deploy.
-
-### Azure Static Web Apps
-
-1. Push the project to GitHub.
-2. In the Azure Portal → Create resource → Static Web App.
-3. Connect to your GitHub repo and set:
-   - App location: `/`
-   - Output location: `/`
-   - No build command needed.
-4. Deploy.
+| `N` | Toggle notes overlay (DM only) |
+| `Z` | Toggle stage mode (DM only) |
 
 ---
 
 ## Troubleshooting
 
-**No audio after Start Session:**
-The browser blocked autoplay. Tap the **▶** button in the control panel to start audio manually. This can happen if the page was open in the background before you tapped.
+**"Cannot GET /login" or blank page:**
+The server isn't running. Start it with `npm start` and navigate to `http://localhost:3000`.
 
-**Audio doesn't change when switching scenes:**
-Make sure you tapped **Start Session** first. Scene changes only trigger audio after the session has started.
+**Cast tab shows "Waiting for DM…" and doesn't update:**
+Both tabs must connect to the same server. Make sure they're using the same URL (both `localhost:3000`, or both the same tunnel URL). Check that the server is running.
+
+**No audio after Start Session:**
+The browser blocked autoplay. Click ▶ in the control panel to start audio manually.
 
 **Image or audio shows as "not found":**
-The path in `scenes.json` doesn't match the actual file location. Paths are relative to `index.html`. Example: `"assets/images/tavern.jpg"` means the file is at `DnDCast/assets/images/tavern.jpg`.
+The file may not have been uploaded. Use the Browse button in the Editor to upload the file — it's copied to the server automatically. Manual file placement in `assets/` also works.
 
-**Works on localhost but not from the phone:**
-- PC and phone must be on the same Wi-Fi.
-- Use the PC's local IP address from `ipconfig`, not `localhost`.
-- Check Windows Firewall settings for Python or Node.
-
-**Screen goes dark during the session:**
-Disable auto-lock in your phone's display settings before the session, or use a keep-awake app.
-
-**Fullscreen button doesn't work on mobile:**
-Some mobile browsers restrict `requestFullscreen` unless the page is added to the home screen. Mirroring the phone screen to the TV is a reliable alternative to fullscreen.
+**Scene changes don't appear on Cast:**
+Try refreshing both tabs so they reconnect to the WebSocket server.
 
 ---
 
-## Pre-Session Checklist
+## Pre-session checklist
 
-- [ ] Local server is running on the PC
-- [ ] App opens from the phone using the PC's IP address
-- [ ] **Do Not Disturb** is on
-- [ ] Screen auto-lock is disabled (or keep-awake is active)
-- [ ] Phone is in landscape orientation
-- [ ] **Start Session** has been tapped (audio unlocked)
-- [ ] Mirroring / casting is active on the TV
-- [ ] Presentation mode is on (clean TV view)
+- [ ] `npm start` is running
+- [ ] Logged in on all devices/tabs
+- [ ] Cast tab: Start Session clicked
+- [ ] DM tab: Start Session clicked, campaign and session selected
+- [ ] Cast is displaying on TV (Chrome Cast tab, or TV browser open to URL)
+- [ ] Switch a scene on DM — confirm Cast follows
