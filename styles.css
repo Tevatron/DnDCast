@@ -114,6 +114,25 @@ body.home-page { overflow: auto; }
   pointer-events: none;
 }
 
+/* Stage badge — centered top, amber; shown when DM is staging (cast frozen) */
+#dm-stage-badge {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 35;
+  background: rgba(160, 110, 10, 0.92);
+  color: #ffe680;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 12px;
+  border-radius: 4px;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
 /* Readable notes/script overlay — two side-by-side cards (Script | Notes),
    legible over any art. Script is on the left since it's read first. */
 #dm-notes-overlay {

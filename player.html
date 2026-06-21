@@ -13,6 +13,9 @@
   <!-- ── DM badge (DM role only) — guards against casting the wrong tab ── -->
   <div id="dm-badge" hidden>DM &middot; do not cast this tab</div>
 
+  <!-- ── Stage badge (DM role only) — shown when cast updates are suspended ── -->
+  <div id="dm-stage-badge" hidden>&#x23F8; Staged &mdash; cast is frozen</div>
+
   <!-- ── Start Session overlay ─────────────────────────────────── -->
   <div id="start-overlay">
     <div id="start-box">
@@ -102,6 +105,7 @@
       <button id="title-btn"           title="Toggle title (T)">T</button>
       <button id="dm-overlay-btn"      title="Toggle notes overlay (N)" hidden>&#x1F4D6;</button>
       <button id="dm-listen-btn"       title="Listen to audio on this device" hidden>&#x1F507;</button>
+      <button id="dm-stage-btn"        title="Stage mode — suspend cast updates (Z)" hidden>&#x2298;</button>
       <button id="fullscreen-btn"      title="Fullscreen (F)">&#x26F6;</button>
       <button id="present-btn"         title="Presentation mode (P)">&#x25A1;</button>
       <button id="switch-session-btn"  title="Switch session">&#x21BA;</button>

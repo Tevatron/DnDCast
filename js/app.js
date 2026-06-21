@@ -37,6 +37,7 @@ let blackoutActive   = false;
 let notesOpen        = false;
 let wantPlaying      = true;       // DM's logical play/pause intent (broadcast)
 let dmOverlayVisible = true;       // DM notes/script overlay
+let isDMStaged       = false;      // when true, broadcastState() is a no-op
 
 let imageGeneration = 0;
 let hideTimer       = null;
@@ -54,6 +55,8 @@ const sync = createSync(role, {
 const $ = id => document.getElementById(id);
 
 const dmBadge           = $('dm-badge');
+const dmStageBadge      = $('dm-stage-badge');
+const dmStageBtn        = $('dm-stage-btn');
 const startOverlay      = $('start-overlay');
 const startBtn          = $('start-btn');
 const startSubtitle     = $('start-subtitle');
@@ -136,6 +139,7 @@ function init() {
   notesToggleBtn.addEventListener('click',toggleNotes);
   dmOverlayBtn.addEventListener('click',  toggleDmOverlay);
   dmListenBtn.addEventListener('click',   toggleDmListen);
+  dmStageBtn.addEventListener('click',    toggleDmStage);
   volumeSlider.addEventListener('input',  onVolumeChange);
 
   document.addEventListener('touchstart', onInteraction, { passive: true });
@@ -160,6 +164,7 @@ function applyRoleUI() {
     dmBadge.hidden       = false;
     dmOverlayBtn.hidden  = false;
     dmListenBtn.hidden   = false;
+    dmStageBtn.hidden    = false;
     startSubtitle.textContent = 'DM Control';
     audio.setLocalOutput(false);              // stay silent; cast tab is the sound
     dmOverlayBtn.classList.toggle('active', dmOverlayVisible);
@@ -459,6 +464,13 @@ function applyDmOverlayVisibility() {
   dmNotesOverlay.hidden = !(isDM && dmOverlayVisible && currentIndex >= 0);
 }
 
+function toggleDmStage() {
+  isDMStaged = !isDMStaged;
+  dmStageBadge.hidden = !isDMStaged;
+  dmStageBtn.classList.toggle('active', isDMStaged);
+  if (!isDMStaged) broadcastState();   // snap cast to wherever DM navigated
+}
+
 function toggleDmListen() {
   audio.setLocalOutput(!audio.localOutput);
   updateDmListenBtn();
@@ -584,7 +596,7 @@ function toggleNotes() {
 
 // ── Cross-tab sync ───────────────────────────────────────────────────
 function broadcastState() {
-  if (!isDM) return;
+  if (!isDM || isDMStaged) return;
   sync.post({
     activeCampaignId,
     activeSessionId,
@@ -687,6 +699,7 @@ function onKeydown(e) {
     case 't': case 'T': toggleTitle();        break;
     case 'p': case 'P': togglePresentation(); break;
     case 'n': case 'N': if (isDM) toggleDmOverlay(); break;
+    case 'z': case 'Z': if (isDM) toggleDmStage();   break;
   }
 }
 
