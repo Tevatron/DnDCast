@@ -117,8 +117,10 @@ function init() {
 
   prevBtn.addEventListener('click', () => changeScene(-1));
   nextBtn.addEventListener('click', () => changeScene(1));
-  tapPrev.addEventListener('click', () => { showControls(); changeScene(-1); });
-  tapNext.addEventListener('click', () => { showControls(); changeScene(1); });
+  // Tap zones advance the scene — disabled in cast mode to prevent
+  // accidental scene changes when touching the cast tab.
+  tapPrev.addEventListener('click', () => { if (isDM) { showControls(); changeScene(-1); } });
+  tapNext.addEventListener('click', () => { if (isDM) { showControls(); changeScene(1); } });
 
   scenesBtn.addEventListener('click', openDrawer);
   closeDrawerBtn.addEventListener('click', closeDrawer);
@@ -152,7 +154,7 @@ function init() {
 
 // Show role-specific chrome.
 function applyRoleUI() {
-  document.title = isDM ? 'DnDCast — DM' : 'DnDCast — Player';
+  document.title = isDM ? 'DnDCast — DM' : 'DnDCast — Cast';
   if (isDM) {
     dmBadge.hidden       = false;
     dmOverlayBtn.hidden  = false;
@@ -162,7 +164,15 @@ function applyRoleUI() {
     dmOverlayBtn.classList.toggle('active', dmOverlayVisible);
     updateDmListenBtn();
   } else {
-    startSubtitle.textContent = 'Player';
+    startSubtitle.textContent = 'Cast';
+    // Cast tab: DM drives these via sync; hide them to avoid confusion/accidents.
+    switchSessionBtn.hidden = true;
+    notesToggleBtn.hidden   = true;
+    notesContent.hidden     = true;
+    blackoutBtn.hidden      = true;
+    titleBtn.hidden         = true;
+    presentBtn.hidden       = true;
+    presentDot.hidden       = true;
   }
 }
 
