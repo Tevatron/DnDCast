@@ -33,6 +33,15 @@ export class AudioController {
   // Start a scene's track, crossfading out whatever was playing.
   async play(scene) {
     const gen = ++this.gen;
+
+    // Same file already loaded — keep it playing rather than fade-out/restart.
+    const incomingSrc = scene.audio ? new URL(scene.audio, location.href).href : null;
+    if (incomingSrc && this.current && this.current.src === incomingSrc) {
+      this.current.loop = scene.loopAudio !== false;
+      this._notify();
+      return;
+    }
+
     this._retireCurrent();
 
     if (!scene.audio) { this._notify(); return; }   // silent scene — valid
