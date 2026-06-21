@@ -86,6 +86,7 @@ const drawerBackdrop    = $('drawer-backdrop');
 const sceneDrawer       = $('scene-drawer');
 const sceneList         = $('scene-list');
 const closeDrawerBtn    = $('close-drawer-btn');
+const drawerSearch      = $('drawer-search');
 const notesToggleBtn    = $('notes-toggle-btn');
 const notesContent      = $('notes-content');
 const errorMsg          = $('error-msg');
@@ -132,6 +133,7 @@ function init() {
   scenesBtn.addEventListener('click', openDrawer);
   closeDrawerBtn.addEventListener('click', closeDrawer);
   drawerBackdrop.addEventListener('click', closeDrawer);
+  drawerSearch.addEventListener('input', filterDrawer);
 
   playPauseBtn.addEventListener('click',  togglePlayPause);
   blackoutBtn.addEventListener('click',   toggleBlackout);
@@ -514,8 +516,28 @@ function updateSceneListHighlight() {
   Array.from(sceneList.children).forEach((li, i) => li.classList.toggle('current', i === currentIndex));
 }
 
-function openDrawer()  { sceneDrawer.hidden = false; drawerBackdrop.hidden = false; }
-function closeDrawer() { sceneDrawer.hidden = true;  drawerBackdrop.hidden = true; }
+function openDrawer() {
+  sceneDrawer.hidden = false;
+  drawerBackdrop.hidden = false;
+  sceneDrawer.style.minHeight = sceneDrawer.offsetHeight + 'px';
+  // Skip auto-focus on touch devices — keyboard popup shifts the layout.
+  if (!window.matchMedia('(pointer: coarse)').matches) drawerSearch.focus();
+}
+
+function closeDrawer() {
+  sceneDrawer.style.minHeight = '';
+  sceneDrawer.hidden = true;
+  drawerBackdrop.hidden = true;
+  drawerSearch.value = '';
+  filterDrawer();
+}
+
+function filterDrawer() {
+  const q = drawerSearch.value.trim().toLowerCase();
+  Array.from(sceneList.children).forEach(li => {
+    li.hidden = q !== '' && !li.textContent.toLowerCase().includes(q);
+  });
+}
 
 // ── Control actions ──────────────────────────────────────────────────
 function togglePlayPause() {

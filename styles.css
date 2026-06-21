@@ -675,6 +675,26 @@ html, body {
   flex-shrink: 0;
 }
 
+#drawer-search-wrap {
+  padding: 0.35rem 0.75rem;
+  border-top: 1px solid #1a1a1a;
+  flex-shrink: 0;
+}
+
+#drawer-search {
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid #2a2a2a;
+  border-radius: 0;
+  color: #888;
+  font-size: 0.78rem;
+  padding: 4px 2px;
+  outline: none;
+}
+
+#drawer-search:focus { color: #ccc; border-bottom-color: #555; }
+
 #close-drawer-btn {
   background: none;
   border: none;
