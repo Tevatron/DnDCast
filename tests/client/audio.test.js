@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import { AudioController } from '../../public/js/audio.js';
 
 // ── Audio mock ────────────────────────────────────────────────────────
@@ -24,7 +24,8 @@ class MockAudio {
   load() {}
 }
 
-beforeEach(() => { global.Audio = MockAudio; });
+// MockAudio is a constant — set it once, not before every test.
+beforeAll(() => { global.Audio = MockAudio; });
 
 // Use fadeMs=0 so _fade() resolves instantly (avoids rAF in tests).
 function makeAudio() { return new AudioController(0); }
@@ -155,6 +156,80 @@ describe('onStateChange notifications', () => {
     a.onStateChange = fn;
     await a.play({ audio: null });
     expect(fn).toHaveBeenCalled();
+  });
+});
+
+// ── togglePlayPause ───────────────────────────────────────────────────
+describe('togglePlayPause', () => {
+  it('does nothing when there is no current track', () => {
+    const a = makeAudio();
+    expect(() => a.togglePlayPause()).not.toThrow();
+  });
+
+  it('resumes a paused track', async () => {
+    const a = makeAudio();
+    await a.play({ audio: 'assets/audio/t.mp3', loopAudio: true });
+    a.pause();
+    expect(a.isPaused()).toBe(true);
+
+    a.togglePlayPause();
+    expect(a.isPaused()).toBe(false);
+  });
+
+  it('pauses a playing track', async () => {
+    const a = makeAudio();
+    await a.play({ audio: 'assets/audio/t.mp3', loopAudio: true });
+    expect(a.isPaused()).toBe(false);
+
+    a.togglePlayPause();
+    expect(a.isPaused()).toBe(true);
+  });
+});
+
+// ── freezeFades ───────────────────────────────────────────────────────
+describe('freezeFades', () => {
+  it('snaps current track volume to effective volume', async () => {
+    const a = makeAudio();
+    a.setVolume(0.7);
+    await a.play({ audio: 'assets/audio/t.mp3', loopAudio: true });
+
+    // Simulate an in-flight fade that hasn't reached its target yet.
+    a.current.volume = 0.1;
+
+    a.freezeFades();
+
+    expect(a.current.volume).toBe(0.7);
+  });
+
+  it('destroys a retiring track immediately', async () => {
+    const a = makeAudio();
+
+    // Inject a fake retiring track directly — this represents a track
+    // that is mid-fade-out. freezeFades should kill it immediately.
+    const retiring = new MockAudio('assets/audio/retiring.mp3');
+    a.retiring = retiring;
+
+    a.freezeFades();
+
+    expect(a.retiring).toBeNull();
+  });
+
+  it('does not throw when there is nothing playing', () => {
+    const a = makeAudio();
+    expect(() => a.freezeFades()).not.toThrow();
+  });
+
+  it('respects localOutput=false when snapping volume', async () => {
+    const a = makeAudio();
+    a.setVolume(0.8);
+    a.setLocalOutput(false);
+    await a.play({ audio: 'assets/audio/t.mp3', loopAudio: true });
+
+    a.current.volume = 0.5; // simulate partial fade
+    a.freezeFades();
+
+    // With localOutput=false, _effVol() is 0
+    expect(a.current.volume).toBe(0);
   });
 });
 

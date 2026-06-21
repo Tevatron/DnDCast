@@ -39,6 +39,7 @@ export function makeTestContext() {
     get server()   { return server; },
     get wsTokens() { return wsTokens; },
     get port()     { return server.address().port; },
+    get dataDir()  { return dataDir; },
   };
 }
 

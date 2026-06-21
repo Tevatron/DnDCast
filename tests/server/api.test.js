@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { rm, mkdir } from 'fs/promises';
 import request from 'supertest';
 import { makeTestContext, login } from '../helpers/createTestApp.js';
 
@@ -6,7 +7,13 @@ const ctx = makeTestContext();
 beforeAll(() => ctx.setup());
 afterAll(() => ctx.teardown());
 
-// Convenience: authenticated agent for each suite.
+// Wipe and recreate the data directory before each test so no test
+// depends on state left behind by a previous one.
+beforeEach(async () => {
+  await rm(ctx.dataDir, { recursive: true, force: true });
+  await mkdir(ctx.dataDir, { recursive: true });
+});
+
 async function authedAgent() {
   const agent = request.agent(ctx.app);
   await login(agent);
@@ -64,17 +71,14 @@ describe('POST /api/save', () => {
 
   it('partial save only overwrites supplied keys', async () => {
     const agent = await authedAgent();
-    // Save initial state
     await agent.post('/api/save').send({
       scenes:    [{ id: 'original', title: 'Original' }],
       campaigns: [{ id: 'camp', title: 'Camp' }],
     });
-    // Overwrite only campaigns
     await agent.post('/api/save').send({
       campaigns: [{ id: 'new-camp', title: 'New Camp' }],
     });
     const res = await agent.get('/api/data');
-    // Scenes should be unchanged
     expect(res.body.scenes).toEqual([{ id: 'original', title: 'Original' }]);
     expect(res.body.campaigns).toEqual([{ id: 'new-camp', title: 'New Camp' }]);
   });
