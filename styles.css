@@ -486,6 +486,14 @@ html, body {
   flex: 1;
 }
 
+#scene-counter {
+  font-size: 0.72rem;
+  color: #3a3a3a;
+  white-space: nowrap;
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
 #error-msg {
   color: #c05050;
   font-size: 0.75rem;

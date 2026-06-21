@@ -86,6 +86,7 @@ const closeDrawerBtn    = $('close-drawer-btn');
 const notesToggleBtn    = $('notes-toggle-btn');
 const notesContent      = $('notes-content');
 const errorMsg          = $('error-msg');
+const sceneCounter      = $('scene-counter');
 const prevBtn           = $('prev-btn');
 const nextBtn           = $('next-btn');
 const scenesBtn         = $('scenes-btn');
@@ -391,6 +392,7 @@ function goToScene(index) {
     new Image().src = currentScenes[index + 1].image;   // warm next image
   }
 
+  sceneCounter.textContent = (index + 1) + ' / ' + currentScenes.length;
   titleOverlay.textContent = scene.title || '';
   notesContent.textContent = scene.notes || '(no notes for this scene)';
   if (isDM) renderDmOverlay(scene);
