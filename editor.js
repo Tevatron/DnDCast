@@ -344,6 +344,7 @@ function openSceneEdit(idx) {
   f.querySelector('[name="audio"]').value    = scene.audio    || '';
   f.querySelector('[name="notes"]').value    = scene.notes    || '';
   f.querySelector('[name="dmScript"]').value = scene.dmScript || '';
+  f.querySelector('[name="fit"]').value      = scene.fit === 'cover' ? 'cover' : 'contain';
   f.querySelector('[name="loopAudio"]').checked = scene.loopAudio !== false;
 
   sceneEditPanel.hidden = false;
@@ -367,14 +368,16 @@ function saveScene() {
     audio:     f.querySelector('[name="audio"]').value.trim()|| '',
     notes:     f.querySelector('[name="notes"]').value.trim()|| '',
     dmScript:  f.querySelector('[name="dmScript"]').value.trim() || '',
+    fit:       f.querySelector('[name="fit"]').value,
     loopAudio: f.querySelector('[name="loopAudio"]').checked,
   };
 
-  // Remove empty string fields to keep JSON clean
-  if (!scene.image)    delete scene.image;
-  if (!scene.audio)    delete scene.audio;
-  if (!scene.notes)    delete scene.notes;
-  if (!scene.dmScript) delete scene.dmScript;
+  // Remove fields that match defaults to keep JSON clean
+  if (!scene.image)         delete scene.image;
+  if (!scene.audio)         delete scene.audio;
+  if (!scene.notes)         delete scene.notes;
+  if (!scene.dmScript)      delete scene.dmScript;
+  if (scene.fit === 'contain') delete scene.fit;  // contain is the default; omit it
 
   if (editingSceneIdx !== null) {
     const oldId = editorScenes[editingSceneIdx].id;

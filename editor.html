@@ -77,6 +77,13 @@
             DM Script <span class="field-hint">(display location TBD)</span>
             <textarea name="dmScript" rows="4" placeholder="Read-aloud text or scene description..."></textarea>
           </label>
+          <label class="field-label">
+            Image fit
+            <select name="fit">
+              <option value="contain">Contain — show full image, letterboxed (default)</option>
+              <option value="cover">Cover — fill screen, crop edges if needed</option>
+            </select>
+          </label>
           <label class="checkbox-label">
             <input type="checkbox" name="loopAudio" checked>
             Loop audio

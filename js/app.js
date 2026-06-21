@@ -140,8 +140,14 @@ function init() {
   document.addEventListener('keydown',    onKeydown);
   document.addEventListener('fullscreenchange',       updateFullscreenBtn);
   document.addEventListener('webkitfullscreenchange', updateFullscreenBtn);
-  // Background tabs freeze rAF; settle audio fades so playback isn't left silent.
+  // Settle audio fades when the tab is backgrounded (rAF freezes there).
   document.addEventListener('visibilitychange', () => { if (document.hidden) audio.freezeFades(); });
+
+  // Player only: keep a noop rAF loop running so Chrome's compositor
+  // continues producing frames while the tab is cast in the background.
+  // Without this, Chrome stops rendering the tab and the cast stream freezes.
+  // Combined with the active audio track this is enough to keep it live.
+  if (!isDM) (function castKeepalive() { requestAnimationFrame(castKeepalive); })();
 }
 
 // Show role-specific chrome.
@@ -370,7 +376,7 @@ function goToScene(index) {
   clearError();
 
   const imgGen = ++imageGeneration;
-  loadSceneImage(scene.image, imgGen, scene.title);
+  loadSceneImage(scene.image, imgGen, scene.title, scene.fit);
   if (index + 1 < currentScenes.length && currentScenes[index + 1].image) {
     new Image().src = currentScenes[index + 1].image;   // warm next image
   }
@@ -389,7 +395,9 @@ function changeScene(delta) {
   goToScene(currentIndex + delta);
 }
 
-function loadSceneImage(src, gen, sceneTitle) {
+function loadSceneImage(src, gen, sceneTitle, fit) {
+  // fit: 'cover' (default, fills screen, may crop) or 'contain' (shows full image, letterboxed)
+  const bgSize = (fit === 'contain' || fit === 'cover') ? fit : CONFIG.objectFit;
   if (!src) {
     if (gen === imageGeneration) {
       sceneDisplay.style.backgroundImage = 'none';
@@ -401,7 +409,8 @@ function loadSceneImage(src, gen, sceneTitle) {
   img.onload = () => {
     if (gen === imageGeneration) {
       hidePlaceholder();
-      sceneDisplay.style.backgroundImage = 'url("' + escapeCssUrl(src) + '")';
+      sceneDisplay.style.backgroundSize    = bgSize;
+      sceneDisplay.style.backgroundImage   = 'url("' + escapeCssUrl(src) + '")';
     }
   };
   img.onerror = () => {
