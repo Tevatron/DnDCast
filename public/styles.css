@@ -93,6 +93,52 @@ body.home-page { overflow: auto; }
 
 #home-footer strong { color: #777; font-weight: 600; }
 
+/* ── Login page ──────────────────────────────────────────────────────── */
+
+#login-form {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  max-width: 280px;
+}
+
+#login-form input[type="password"] {
+  width: 100%;
+  background: #111;
+  border: 1px solid #2a2a2a;
+  border-radius: 7px;
+  color: #e0e0e0;
+  font-size: 1rem;
+  padding: 0.65rem 1rem;
+  text-align: center;
+  letter-spacing: 0.1em;
+  outline: none;
+}
+
+#login-form input[type="password"]:focus { border-color: #c9a84c; }
+
+.login-btn {
+  width: 100%;
+  padding: 0.65rem;
+  background: #c9a84c;
+  color: #0a0a0a;
+  border: none;
+  border-radius: 7px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+}
+
+.login-btn:hover { background: #d9b85c; }
+
+#login-error {
+  color: #c05050;
+  font-size: 0.85rem;
+}
+
 /* =====================================================================
    DM mode chrome
    ===================================================================== */

@@ -242,28 +242,25 @@ function unlockAudioContext() {
 
 // ── Data loading ─────────────────────────────────────────────────────
 async function loadData() {
-  const [scenesRes, sessionsRes, campaignsRes] = await Promise.allSettled([
-    fetchJSON('scenes.json'),
-    fetchJSON('sessions.json'),
-    fetchJSON('campaigns.json'),
-  ]);
-
-  allScenes    = Array.isArray(scenesRes.value)    ? scenesRes.value    : [];
-  allSessions  = Array.isArray(sessionsRes.value)  ? sessionsRes.value  : [];
-  allCampaigns = Array.isArray(campaignsRes.value) ? campaignsRes.value : [];
-
+  try {
+    const res = await fetch('/api/data');
+    if (res.status === 401) { location.href = '/login'; return false; }
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const data   = await res.json();
+    allScenes    = Array.isArray(data.scenes)    ? data.scenes    : [];
+    allSessions  = Array.isArray(data.sessions)  ? data.sessions  : [];
+    allCampaigns = Array.isArray(data.campaigns) ? data.campaigns : [];
+  } catch (e) {
+    showError('Could not load data: ' + e.message);
+    showControls();
+    return false;
+  }
   if (!allScenes.length) {
-    showError('Could not load scenes.json or it is empty.');
+    showError('No scenes found — add some in the Editor.');
     showControls();
     return false;
   }
   return true;
-}
-
-async function fetchJSON(url) {
-  const res = await fetch(url);
-  if (!res.ok) throw new Error('HTTP ' + res.status);
-  return res.json();
 }
 
 // ── Campaign / session pickers ───────────────────────────────────────

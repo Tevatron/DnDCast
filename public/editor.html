@@ -19,7 +19,6 @@
     </nav>
 
     <div class="header-actions">
-      <button id="open-btn">Open Project</button>
       <button id="save-btn" class="btn-primary">Save</button>
       <a href="index.html" class="player-link">&#x2302; Home</a>
     </div>
@@ -186,23 +185,6 @@
     </div>
 
   </main>
-
-  <!-- ── File input fallback modal (non-FSA browsers) ─────────────── -->
-  <div id="open-modal" hidden>
-    <div class="modal-backdrop"></div>
-    <div class="modal-box">
-      <h3>Load Project Files</h3>
-      <p class="modal-note">Select your JSON files below. Leave any field empty to skip that file.</p>
-      <label class="field-label">scenes.json <input type="file" id="scenes-file-input" accept=".json"></label>
-      <label class="field-label">sessions.json <input type="file" id="sessions-file-input" accept=".json"></label>
-      <label class="field-label">campaigns.json <input type="file" id="campaigns-file-input" accept=".json"></label>
-      <p class="modal-tip">&#128161; Use Chrome or Edge for direct folder access — no manual downloads needed.</p>
-      <div class="modal-actions">
-        <button id="open-confirm-btn" class="btn-primary">Load Files</button>
-        <button id="open-cancel-btn" class="btn-ghost">Cancel</button>
-      </div>
-    </div>
-  </div>
 
   <script type="module" src="editor.js"></script>
 </body>

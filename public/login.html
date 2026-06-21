@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DnDCast — Login</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="home-page">
+
+  <main id="home">
+    <header id="home-header">
+      <h1>DnD<span>Cast</span></h1>
+      <p>Enter your password to continue.</p>
+    </header>
+
+    <form id="login-form">
+      <input id="password-input" type="password" placeholder="Password"
+             autocomplete="current-password" required autofocus>
+      <button type="submit" class="login-btn">Enter</button>
+      <p id="login-error" hidden>Wrong password — try again.</p>
+    </form>
+  </main>
+
+  <script>
+    document.getElementById('login-form').addEventListener('submit', async e => {
+      e.preventDefault();
+      const password = document.getElementById('password-input').value;
+      const res = await fetch('/api/login', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ password }),
+      });
+      if (res.ok) {
+        const { wsToken } = await res.json();
+        localStorage.setItem('dndcast_wsToken', wsToken);
+        // All tabs share this token — they'll reconnect with it automatically.
+        location.href = '/';
+      } else {
+        document.getElementById('login-error').hidden = false;
+        document.getElementById('password-input').value = '';
+        document.getElementById('password-input').focus();
+      }
+    });
+  </script>
+
+</body>
+</html>
