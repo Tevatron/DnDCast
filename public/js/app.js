@@ -5,9 +5,8 @@
 //   • role "player" — the cast tab: shows art, plays audio, FOLLOWS the DM.
 //   • role "dm"     — control tab: full UI + notes/script overlay; BROADCASTS
 //                     every action to the Player and stays silent locally.
-// Sync is same-origin only (BroadcastChannel) — see js/sync.js. No backend.
 //
-// Content: scenes.json / sessions.json / campaigns.json (or editor.html).
+// Content: scenes.json / adventures.json / campaigns.json (via editor.html).
 // Tunables: js/config.js.
 // =====================================================================
 
@@ -22,12 +21,12 @@ const isDM = role === 'dm';
 document.body.dataset.role = role;
 
 // ── State ────────────────────────────────────────────────────────────
-let allScenes    = [];
-let allSessions  = [];
-let allCampaigns = [];
+let allScenes     = [];
+let allAdventures = [];
+let allCampaigns  = [];
 let currentScenes = [];
-let activeCampaignId = null;
-let activeSessionId  = null;
+let activeCampaignId  = null;
+let activeAdventureId = null;
 
 let currentIndex     = -1;        // -1 = nothing shown yet
 let volume           = 1;
@@ -55,57 +54,57 @@ const sync = createSync(role, {
 // ── DOM refs ─────────────────────────────────────────────────────────
 const $ = id => document.getElementById(id);
 
-const dmBadge           = $('dm-badge');
-const dmStageBadge      = $('dm-stage-badge');
-const dmStageBtn        = $('dm-stage-btn');
-const startOverlay      = $('start-overlay');
-const startBtn          = $('start-btn');
-const startSubtitle     = $('start-subtitle');
-const waitingOverlay    = $('waiting-overlay');
-const playSoloBtn       = $('play-solo-btn');
-const campaignOverlay   = $('campaign-overlay');
-const campaignList      = $('campaign-list');
-const sessionOverlay    = $('session-overlay');
-const sessionPickerList = $('session-picker-list');
-const sessionLabel      = $('session-label');
-const switchSessionBtn  = $('switch-session-btn');
-const homeBtn           = $('home-btn');
-const sceneDisplay      = $('scene-display');
-const scenePlaceholder  = $('scene-placeholder');
-const placeholderTitle  = $('placeholder-title');
-const placeholderError  = $('placeholder-error');
-const blackoutEl        = $('blackout');
-const dmNotesOverlay    = $('dm-notes-overlay');
-const dmNotesText       = $('dm-notes-text');
-const dmScriptText      = $('dm-script-text');
-const dmOverlayBtn      = $('dm-overlay-btn');
-const dmListenBtn       = $('dm-listen-btn');
-const titleOverlay      = $('title-overlay');
-const controls          = $('controls');
-const presentDot        = $('present-dot');
-const drawerBackdrop    = $('drawer-backdrop');
-const sceneDrawer       = $('scene-drawer');
-const sceneList         = $('scene-list');
-const closeDrawerBtn    = $('close-drawer-btn');
-const drawerSearch      = $('drawer-search');
-const notesToggleBtn    = $('notes-toggle-btn');
-const notesContent      = $('notes-content');
-const errorMsg          = $('error-msg');
-const overflowWrap      = $('overflow-wrap');
-const overflowBtn       = $('overflow-btn');
-const overflowPanel     = $('overflow-panel');
-const sceneCounter      = $('scene-counter');
-const prevBtn           = $('prev-btn');
-const nextBtn           = $('next-btn');
-const scenesBtn         = $('scenes-btn');
-const playPauseBtn      = $('play-pause-btn');
-const blackoutBtn       = $('blackout-btn');
-const titleBtn          = $('title-btn');
-const fullscreenBtn     = $('fullscreen-btn');
-const presentBtn        = $('present-btn');
-const volumeSlider      = $('volume-slider');
-const tapPrev           = $('tap-prev');
-const tapNext           = $('tap-next');
+const dmBadge            = $('dm-badge');
+const dmStageBadge       = $('dm-stage-badge');
+const dmStageBtn         = $('dm-stage-btn');
+const startOverlay       = $('start-overlay');
+const startBtn           = $('start-btn');
+const startSubtitle      = $('start-subtitle');
+const waitingOverlay     = $('waiting-overlay');
+const playSoloBtn        = $('play-solo-btn');
+const campaignOverlay    = $('campaign-overlay');
+const campaignList       = $('campaign-list');
+const adventureOverlay   = $('adventure-overlay');
+const adventurePickerList= $('adventure-picker-list');
+const adventureLabel     = $('adventure-label');
+const switchAdventureBtn = $('switch-adventure-btn');
+const homeBtn            = $('home-btn');
+const sceneDisplay       = $('scene-display');
+const scenePlaceholder   = $('scene-placeholder');
+const placeholderTitle   = $('placeholder-title');
+const placeholderError   = $('placeholder-error');
+const blackoutEl         = $('blackout');
+const dmNotesOverlay     = $('dm-notes-overlay');
+const dmNotesText        = $('dm-notes-text');
+const dmScriptText       = $('dm-script-text');
+const dmOverlayBtn       = $('dm-overlay-btn');
+const dmListenBtn        = $('dm-listen-btn');
+const titleOverlay       = $('title-overlay');
+const controls           = $('controls');
+const presentDot         = $('present-dot');
+const drawerBackdrop     = $('drawer-backdrop');
+const sceneDrawer        = $('scene-drawer');
+const sceneList          = $('scene-list');
+const closeDrawerBtn     = $('close-drawer-btn');
+const drawerSearch       = $('drawer-search');
+const notesToggleBtn     = $('notes-toggle-btn');
+const notesContent       = $('notes-content');
+const errorMsg           = $('error-msg');
+const overflowWrap       = $('overflow-wrap');
+const overflowBtn        = $('overflow-btn');
+const overflowPanel      = $('overflow-panel');
+const sceneCounter       = $('scene-counter');
+const prevBtn            = $('prev-btn');
+const nextBtn            = $('next-btn');
+const scenesBtn          = $('scenes-btn');
+const playPauseBtn       = $('play-pause-btn');
+const blackoutBtn        = $('blackout-btn');
+const titleBtn           = $('title-btn');
+const fullscreenBtn      = $('fullscreen-btn');
+const presentBtn         = $('present-btn');
+const volumeSlider       = $('volume-slider');
+const tapPrev            = $('tap-prev');
+const tapNext            = $('tap-next');
 
 // ── Init / wiring ────────────────────────────────────────────────────
 function init() {
@@ -119,10 +118,10 @@ function init() {
   applyPresentationMode();
   applyRoleUI();
 
-  startBtn.addEventListener('click',         startSession);
-  playSoloBtn.addEventListener('click',      playSolo);
-  switchSessionBtn.addEventListener('click', openSessionFlow);
-  homeBtn.addEventListener('click',          goHome);
+  startBtn.addEventListener('click',          startSession);
+  playSoloBtn.addEventListener('click',       playSolo);
+  switchAdventureBtn.addEventListener('click',openAdventureFlow);
+  homeBtn.addEventListener('click',           goHome);
 
   prevBtn.addEventListener('click', () => changeScene(-1));
   nextBtn.addEventListener('click', () => changeScene(1));
@@ -182,14 +181,14 @@ function applyRoleUI() {
   } else {
     startSubtitle.textContent = 'Cast';
     // Cast tab: DM drives these via sync; hide them to avoid confusion/accidents.
-    switchSessionBtn.hidden = true;
-    notesToggleBtn.hidden   = true;
-    notesContent.hidden     = true;
-    blackoutBtn.hidden      = true;
-    titleBtn.hidden         = true;
-    presentBtn.hidden       = true;
-    presentDot.hidden       = true;
-    overflowBtn.hidden      = true;   // overflow is empty in cast mode
+    switchAdventureBtn.hidden = true;
+    notesToggleBtn.hidden     = true;
+    notesContent.hidden       = true;
+    blackoutBtn.hidden        = true;
+    titleBtn.hidden           = true;
+    presentBtn.hidden         = true;
+    presentDot.hidden         = true;
+    overflowBtn.hidden        = true;   // overflow is empty in cast mode
   }
 }
 
@@ -202,7 +201,7 @@ async function startSession() {
   if (!ok) return;
 
   if (isDM) {
-    openSessionFlow();                         // DM drives — pick a session
+    openAdventureFlow();                        // DM drives — pick an adventure
   } else {
     waitingOverlay.hidden = false;             // Player follows — wait for DM
     sync.requestState();
@@ -212,7 +211,7 @@ async function startSession() {
 // Player: abandon waiting and run the pickers standalone.
 function playSolo() {
   waitingOverlay.hidden = true;
-  openSessionFlow();
+  openAdventureFlow();
 }
 
 function goHome() {
@@ -223,10 +222,10 @@ function goHome() {
   document.body.classList.remove('cursor-hidden');
   if (blackoutActive) setBlackout(false, false);
   closeDrawer();
-  campaignOverlay.hidden = true;
-  sessionOverlay.hidden  = true;
-  waitingOverlay.hidden  = true;
-  startOverlay.hidden    = false;
+  campaignOverlay.hidden  = true;
+  adventureOverlay.hidden = true;
+  waitingOverlay.hidden   = true;
+  startOverlay.hidden     = false;
 }
 
 function unlockAudioContext() {
@@ -246,10 +245,10 @@ async function loadData() {
     const res = await fetch('/api/data');
     if (res.status === 401) { location.href = '/login'; return false; }
     if (!res.ok) throw new Error('HTTP ' + res.status);
-    const data   = await res.json();
-    allScenes    = Array.isArray(data.scenes)    ? data.scenes    : [];
-    allSessions  = Array.isArray(data.sessions)  ? data.sessions  : [];
-    allCampaigns = Array.isArray(data.campaigns) ? data.campaigns : [];
+    const data     = await res.json();
+    allScenes      = Array.isArray(data.scenes)     ? data.scenes     : [];
+    allAdventures  = Array.isArray(data.adventures) ? data.adventures : [];
+    allCampaigns   = Array.isArray(data.campaigns)  ? data.campaigns  : [];
   } catch (e) {
     showError('Could not load data: ' + e.message);
     showControls();
@@ -263,59 +262,61 @@ async function loadData() {
   return true;
 }
 
-// ── Campaign / session pickers ───────────────────────────────────────
-function openSessionFlow() {
-  if (allCampaigns.length)     showCampaignPicker();
-  else if (allSessions.length) showSessionPicker(null);
-  else                         startAllScenes();
+// ── Campaign / adventure pickers ─────────────────────────────────────
+function openAdventureFlow() {
+  if (allCampaigns.length)      showCampaignPicker();
+  else if (allAdventures.length) showAdventurePicker(null);
+  else                           startAllScenes();
 }
 
 function showCampaignPicker() {
   campaignList.innerHTML = '';
 
   allCampaigns.forEach(campaign => {
-    const count = allSessions.filter(s => s.campaignId === campaign.id).length;
+    const count = allAdventures.filter(a => a.campaignId === campaign.id).length;
     const li = document.createElement('li');
     li.className = 'picker-card';
     li.innerHTML =
       `<span class="picker-title">${escHtml(campaign.title)}</span>` +
-      `<span class="picker-meta">${count} session${count !== 1 ? 's' : ''}</span>` +
+      `<span class="picker-meta">${count} adventure${count !== 1 ? 's' : ''}</span>` +
       (campaign.description ? `<span class="picker-desc">${escHtml(campaign.description)}</span>` : '');
-    li.addEventListener('click', () => { campaignOverlay.hidden = true; showSessionPicker(campaign.id); });
+    li.addEventListener('click', () => { campaignOverlay.hidden = true; showAdventurePicker(campaign.id); });
     campaignList.appendChild(li);
   });
 
-  if (allSessions.length) {
+  if (allAdventures.length) {
     const allLi = document.createElement('li');
     allLi.className = 'picker-card picker-all';
     allLi.innerHTML =
       `<span class="picker-title">All Campaigns</span>` +
-      `<span class="picker-meta">${allSessions.length} sessions</span>`;
-    allLi.addEventListener('click', () => { campaignOverlay.hidden = true; showSessionPicker(null); });
+      `<span class="picker-meta">${allAdventures.length} adventures</span>`;
+    allLi.addEventListener('click', () => { campaignOverlay.hidden = true; showAdventurePicker(null); });
     campaignList.appendChild(allLi);
   }
 
   campaignOverlay.hidden = false;
 }
 
-function showSessionPicker(campaignId) {
+function showAdventurePicker(campaignId) {
   activeCampaignId = campaignId;
-  const filtered = campaignId ? allSessions.filter(s => s.campaignId === campaignId) : allSessions;
+  const filtered = campaignId
+    ? allAdventures.filter(a => a.campaignId === campaignId)
+    : allAdventures;
 
-  sessionPickerList.innerHTML = '';
+  adventurePickerList.innerHTML = '';
 
-  filtered.forEach(session => {
-    const count = Array.isArray(session.scenes) ? session.scenes.length : 0;
-    const savedIdx = parseInt(localStorage.getItem('dndcast_index_' + session.id), 10);
+  filtered.forEach(adventure => {
+    const count = Array.isArray(adventure.scenes) ? adventure.scenes.length : 0;
+    const savedIdx = parseInt(localStorage.getItem('dndcast_index_' + adventure.id), 10);
     const progress = (Number.isFinite(savedIdx) && savedIdx > 0) ? ' · scene ' + (savedIdx + 1) : '';
 
     const li = document.createElement('li');
     li.className = 'picker-card';
     li.innerHTML =
-      `<span class="picker-title">${escHtml(session.title)}</span>` +
+      `<span class="picker-title">${escHtml(adventure.title)}</span>` +
       `<span class="picker-meta">${count} scene${count !== 1 ? 's' : ''}${escHtml(progress)}</span>`;
-    li.addEventListener('click', () => pickSession(session));
-    sessionPickerList.appendChild(li);
+    li.addEventListener('click', () => pickAdventure(adventure));
+    adventurePickerList.appendChild(li);
   });
 
   const allLi = document.createElement('li');
@@ -324,7 +325,7 @@ function showSessionPicker(campaignId) {
     `<span class="picker-title">Play All Scenes</span>` +
     `<span class="picker-meta">${allScenes.length} scenes</span>`;
   allLi.addEventListener('click', startAllScenes);
-  sessionPickerList.appendChild(allLi);
+  adventurePickerList.appendChild(allLi);
 
   if (allCampaigns.length) {
     const backLi = document.createElement('li');
@@ -332,60 +333,60 @@ function showSessionPicker(campaignId) {
     const backBtn = document.createElement('button');
     backBtn.className = 'text-btn';
     backBtn.textContent = '← Back to Campaigns';
-    backBtn.addEventListener('click', () => { sessionOverlay.hidden = true; showCampaignPicker(); });
+    backBtn.addEventListener('click', () => { adventureOverlay.hidden = true; showCampaignPicker(); });
     backLi.appendChild(backBtn);
-    sessionPickerList.appendChild(backLi);
+    adventurePickerList.appendChild(backLi);
   }
 
-  sessionOverlay.hidden = false;
+  adventureOverlay.hidden = false;
 }
 
-function pickSession(session) {
-  activeSessionId  = session.id;
-  activeCampaignId = session.campaignId || activeCampaignId;
-  localStorage.setItem('dndcast_session', session.id);
+function pickAdventure(adventure) {
+  activeAdventureId = adventure.id;
+  activeCampaignId  = adventure.campaignId || activeCampaignId;
+  localStorage.setItem('dndcast_adventure', adventure.id);
   if (activeCampaignId) localStorage.setItem('dndcast_campaign', activeCampaignId);
 
-  currentScenes = (Array.isArray(session.scenes) ? session.scenes : [])
+  currentScenes = (Array.isArray(adventure.scenes) ? adventure.scenes : [])
     .map(id => allScenes.find(s => s.id === id))
     .filter(Boolean);
 
   if (!currentScenes.length) {
-    showError('Session has no valid scenes — loading all scenes instead.');
+    showError('Adventure has no valid scenes — loading all scenes instead.');
     currentScenes = [...allScenes];
   }
 
-  sessionOverlay.hidden  = true;
-  campaignOverlay.hidden = true;
+  adventureOverlay.hidden = true;
+  campaignOverlay.hidden  = true;
   enterPlayer();
 }
 
 function startAllScenes() {
-  activeSessionId  = 'all';
-  activeCampaignId = null;
-  currentScenes    = [...allScenes];
-  localStorage.setItem('dndcast_session', 'all');
-  sessionOverlay.hidden  = true;
-  campaignOverlay.hidden = true;
+  activeAdventureId = 'all';
+  activeCampaignId  = null;
+  currentScenes     = [...allScenes];
+  localStorage.setItem('dndcast_adventure', 'all');
+  adventureOverlay.hidden = true;
+  campaignOverlay.hidden  = true;
   enterPlayer();
 }
 
 function enterPlayer() {
   audio.stopAll();
-  const savedIdx = parseInt(localStorage.getItem('dndcast_index_' + activeSessionId), 10);
+  const savedIdx = parseInt(localStorage.getItem('dndcast_index_' + activeAdventureId), 10);
   const idx = (Number.isFinite(savedIdx) && savedIdx >= 0 && savedIdx < currentScenes.length) ? savedIdx : 0;
-  updateSessionLabel();
+  updateAdventureLabel();
   buildSceneList();
   showControls();
   currentIndex = -1;            // force goToScene to run
   goToScene(idx);
 }
 
-function updateSessionLabel() {
-  if (activeSessionId === 'all') { sessionLabel.textContent = 'All Scenes'; return; }
-  const session  = allSessions.find(s => s.id === activeSessionId);
-  const campaign = allCampaigns.find(c => c.id === activeCampaignId);
-  sessionLabel.textContent = [campaign?.title, session?.title].filter(Boolean).join(' — ');
+function updateAdventureLabel() {
+  if (activeAdventureId === 'all') { adventureLabel.textContent = 'All Scenes'; return; }
+  const adventure = allAdventures.find(a => a.id === activeAdventureId);
+  const campaign  = allCampaigns.find(c => c.id === activeCampaignId);
+  adventureLabel.textContent = [campaign?.title, adventure?.title].filter(Boolean).join(' — ');
 }
 
 // ── Scene navigation ─────────────────────────────────────────────────
@@ -394,7 +395,7 @@ function goToScene(index) {
   index = Math.max(0, Math.min(index, currentScenes.length - 1));
   currentIndex = index;
   wantPlaying  = true;                 // a scene change always means "play"
-  localStorage.setItem('dndcast_index_' + activeSessionId, index);
+  localStorage.setItem('dndcast_index_' + activeAdventureId, index);
 
   const scene = currentScenes[index];
   clearError();
@@ -625,7 +626,7 @@ function broadcastState() {
   if (!isDM || isDMStaged) return;
   sync.post({
     activeCampaignId,
-    activeSessionId,
+    activeAdventureId,
     sceneIndex:   currentIndex,
     paused:       !wantPlaying,
     volume:       audio.volume,    // logical volume, independent of DM local mute
@@ -647,14 +648,14 @@ function applyRemoteState(s) {
     return;
   }
 
-  const sessionChanged =
-    s.activeSessionId !== activeSessionId || s.activeCampaignId !== activeCampaignId;
+  const adventureChanged =
+    s.activeAdventureId !== activeAdventureId || s.activeCampaignId !== activeCampaignId;
 
-  if (sessionChanged) {
-    activeCampaignId = s.activeCampaignId;
-    activeSessionId  = s.activeSessionId;
-    resolveScenesForActive();
-    updateSessionLabel();
+  if (adventureChanged) {
+    activeCampaignId  = s.activeCampaignId;
+    activeAdventureId = s.activeAdventureId;
+    resolveAdventureScenesForActive();
+    updateAdventureLabel();
     buildSceneList();
     audio.stopAll();
     currentIndex = -1;
@@ -670,7 +671,7 @@ function applyRemoteState(s) {
   if (s.sceneIndex < 0) return;                // DM hasn't picked a scene yet
   waitingOverlay.hidden = true;                // a real scene is incoming
 
-  if (sessionChanged || s.sceneIndex !== currentIndex) {
+  if (adventureChanged || s.sceneIndex !== currentIndex) {
     goToScene(s.sceneIndex);                   // plays the new scene
   }
 
@@ -682,11 +683,11 @@ function applyRemoteState(s) {
   if (s.titleVisible !== titleVisible) setTitleVisible(s.titleVisible);
 }
 
-function resolveScenesForActive() {
-  if (activeSessionId === 'all' || !activeSessionId) { currentScenes = [...allScenes]; return; }
-  const session = allSessions.find(s => s.id === activeSessionId);
-  currentScenes = session
-    ? (session.scenes || []).map(id => allScenes.find(s => s.id === id)).filter(Boolean)
+function resolveAdventureScenesForActive() {
+  if (activeAdventureId === 'all' || !activeAdventureId) { currentScenes = [...allScenes]; return; }
+  const adventure = allAdventures.find(a => a.id === activeAdventureId);
+  currentScenes = adventure
+    ? (adventure.scenes || []).map(id => allScenes.find(s => s.id === id)).filter(Boolean)
     : [...allScenes];
   if (!currentScenes.length) currentScenes = [...allScenes];
 }

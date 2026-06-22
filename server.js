@@ -96,20 +96,20 @@ export async function createApp(config, opts = {}) {
   app.use(requireAuth);
 
   app.get('/api/data', async (req, res) => {
-    const [scenes, sessions, campaigns] = await Promise.all([
+    const [scenes, adventures, campaigns] = await Promise.all([
       readJson(dataDir, 'scenes.json'),
-      readJson(dataDir, 'sessions.json'),
+      readJson(dataDir, 'adventures.json'),
       readJson(dataDir, 'campaigns.json'),
     ]);
-    res.json({ scenes, sessions, campaigns });
+    res.json({ scenes, adventures, campaigns });
   });
 
   app.post('/api/save', async (req, res) => {
-    const { scenes, sessions, campaigns } = req.body;
+    const { scenes, adventures, campaigns } = req.body;
     await Promise.all([
-      scenes    != null && writeJson(dataDir, 'scenes.json',    scenes),
-      sessions  != null && writeJson(dataDir, 'sessions.json',  sessions),
-      campaigns != null && writeJson(dataDir, 'campaigns.json', campaigns),
+      scenes     != null && writeJson(dataDir, 'scenes.json',     scenes),
+      adventures != null && writeJson(dataDir, 'adventures.json', adventures),
+      campaigns  != null && writeJson(dataDir, 'campaigns.json',  campaigns),
     ].filter(Boolean));
     res.json({ ok: true });
   });

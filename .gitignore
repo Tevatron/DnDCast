@@ -3,7 +3,7 @@ config.json
 
 # ── Live data files ─────────────────────────────────────────────────────
 data/scenes.json
-data/sessions.json
+data/adventures.json
 data/campaigns.json
 
 # ── Media assets (large binary files, manage outside git) ──────────────

@@ -14,7 +14,7 @@
 
     <nav id="tabs">
       <button class="tab-btn active" data-tab="scenes">Scenes</button>
-      <button class="tab-btn" data-tab="sessions">Sessions</button>
+      <button class="tab-btn" data-tab="adventures">Adventures</button>
       <button class="tab-btn" data-tab="campaigns">Campaigns</button>
     </nav>
 
@@ -96,43 +96,43 @@
       </div>
     </div>
 
-    <!-- ── Sessions tab ───────────────────────────────────────────── -->
-    <div class="tab-panel" id="tab-sessions" hidden>
+    <!-- ── Adventures tab ───────────────────────────────────────────── -->
+    <div class="tab-panel" id="tab-adventures" hidden>
       <div class="list-panel">
         <div class="panel-header">
-          <h2>Sessions</h2>
-          <button id="add-session-btn" class="btn-add">+ Add Session</button>
+          <h2>Adventures</h2>
+          <button id="add-adventure-btn" class="btn-add">+ Add Adventure</button>
         </div>
-        <div id="sessions-empty" class="empty-state" hidden>No sessions yet. Click + Add Session to create one.</div>
-        <ul id="sessions-list"></ul>
+        <div id="adventures-empty" class="empty-state" hidden>No adventures yet. Click + Add Adventure to create one.</div>
+        <ul id="adventures-list"></ul>
       </div>
-      <div class="edit-panel" id="session-edit-panel" hidden>
+      <div class="edit-panel" id="adventure-edit-panel" hidden>
         <div class="edit-panel-header">
-          <h3 id="session-edit-heading">Edit Session</h3>
-          <button class="close-edit-btn" data-panel="session-edit-panel">&#x2715;</button>
+          <h3 id="adventure-edit-heading">Edit Adventure</h3>
+          <button class="close-edit-btn" data-panel="adventure-edit-panel">&#x2715;</button>
         </div>
-        <form id="session-form" autocomplete="off">
+        <form id="adventure-form" autocomplete="off">
           <label class="field-label">
             Title
-            <input type="text" name="title" placeholder="Session title" required>
+            <input type="text" name="title" placeholder="Adventure title" required>
           </label>
           <label class="field-label">
             ID <span class="field-hint">(unique identifier)</span>
-            <input type="text" name="id" placeholder="session-id" required pattern="[a-z0-9\-_]+">
+            <input type="text" name="id" placeholder="adventure-id" required pattern="[a-z0-9\-_]+">
           </label>
           <label class="field-label">
             Campaign
-            <select name="campaignId" id="session-campaign-select">
+            <select name="campaignId" id="adventure-campaign-select">
               <option value="">(none)</option>
             </select>
           </label>
         </form>
 
         <!-- Scene list manager -->
-        <div id="session-scenes-section">
-          <h4 class="section-heading">Scenes in this session</h4>
-          <div id="session-scene-empty" class="empty-state small" hidden>No scenes added yet.</div>
-          <ul id="session-scene-list"></ul>
+        <div id="adventure-scenes-section">
+          <h4 class="section-heading">Scenes in this adventure</h4>
+          <div id="adventure-scene-empty" class="empty-state small" hidden>No scenes added yet.</div>
+          <ul id="adventure-scene-list"></ul>
           <h4 class="section-heading section-heading-gap">All scenes</h4>
           <input id="scene-picker-search" type="search" placeholder="Filter scenes…" autocomplete="off">
           <div id="scene-picker-panel"></div>
@@ -140,9 +140,9 @@
 
         <!-- Actions sit below the scene list -->
         <div class="form-actions" style="margin-top:1rem">
-          <button type="submit" form="session-form" class="btn-primary">Save Session</button>
-          <button type="button" id="delete-session-btn" class="btn-danger">Delete</button>
-          <button type="button" class="close-edit-btn btn-ghost" data-panel="session-edit-panel">Cancel</button>
+          <button type="submit" form="adventure-form" class="btn-primary">Save Adventure</button>
+          <button type="button" id="delete-adventure-btn" class="btn-danger">Delete</button>
+          <button type="button" class="close-edit-btn btn-ghost" data-panel="adventure-edit-panel">Cancel</button>
         </div>
       </div>
     </div>
@@ -172,7 +172,7 @@
             <input type="text" name="id" placeholder="campaign-id" required pattern="[a-z0-9\-_]+">
           </label>
           <label class="field-label">
-            Description <span class="field-hint">(shown in the session picker)</span>
+            Description <span class="field-hint">(shown in the adventure picker)</span>
             <textarea name="description" rows="2" placeholder="Short description..."></textarea>
           </label>
           <div class="form-actions">

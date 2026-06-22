@@ -1,0 +1,33 @@
+[
+  {
+    "id": "price-of-beauty",
+    "title": "Price of Beauty",
+    "campaignId": "candlekeep-oneshots",
+    "scenes": [
+      "candlekeep-sky-view",
+      "candlekeep-map",
+      "candlekeep-emerald-door",
+      "price-of-beauty-book",
+      "restful-lily-full-map",
+      "restful-lily-tower",
+      "3-elves",
+      "forest-road"
+    ]
+  },
+  {
+    "id": "test-session",
+    "title": "Test Session",
+    "scenes": [
+      "tavern",
+      "forest-road",
+      "candlekeep-map"
+    ]
+  },
+  {
+    "id": "test-backend",
+    "title": "Test Backend",
+    "scenes": [
+      "test-scene-backend"
+    ]
+  }
+]

@@ -23,7 +23,7 @@ test.describe('DM / Cast sync', () => {
       data: {
         scenes:    [{ id: 'sync-scene-a', title: 'Scene Alpha' },
                     { id: 'sync-scene-b', title: 'Scene Beta' }],
-        sessions:  [{ id: 'sync-session', title: 'Sync Session',
+        adventures:  [{ id: 'sync-adventure', title: 'Sync Adventure',
                       scenes: ['sync-scene-a', 'sync-scene-b'] }],
         campaigns: [],
       },
@@ -58,7 +58,7 @@ test.describe('DM / Cast sync', () => {
       // Start DM tab and pick the session.
       await startPlayer(dmPage, 'dm');
       // No campaign, so session picker opens directly.
-      await dmPage.locator('#session-overlay .picker-card', { hasText: 'Sync Session' }).click();
+      await dmPage.locator('#adventure-overlay .picker-card', { hasText: 'Sync Adventure' }).click();
 
       // Cast tab should leave waiting state and show the first scene title.
       await expect(castPage.locator('#waiting-overlay')).toBeHidden({ timeout: 5000 });
@@ -68,8 +68,8 @@ test.describe('DM / Cast sync', () => {
       await dmPage.click('#next-btn');
       await expect(castPage.locator('#scene-counter')).toContainText('2 /', { timeout: 5000 });
     } finally {
-      await castCtx.close();
-      await dmCtx.close();
+      await castCtx.close().catch(() => {});
+      await dmCtx.close().catch(() => {});
     }
   });
 });

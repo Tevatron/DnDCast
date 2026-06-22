@@ -323,7 +323,7 @@ html, body {
 /* ── Campaign / Session pickers ────────────────────────────────────── */
 
 #campaign-overlay,
-#session-overlay {
+#adventure-overlay {
   position: fixed;
   inset: 0;
   z-index: 900;
@@ -541,7 +541,7 @@ html, body {
 
 .text-btn:active { color: #aaa; }
 
-#session-label {
+#adventure-label {
   font-size: 0.72rem;
   color: #444;
   letter-spacing: 0.03em;

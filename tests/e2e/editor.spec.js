@@ -6,7 +6,7 @@ test.describe('Editor', () => {
     await loginViaUI(page);
     // Reset server data so each test starts from a clean slate.
     await page.request.post('/api/save', {
-      data: { scenes: [], sessions: [], campaigns: [] },
+      data: { scenes: [], adventures: [], campaigns: [] },
     });
   });
 

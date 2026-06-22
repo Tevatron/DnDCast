@@ -25,7 +25,7 @@ describe('GET /api/data', () => {
     const agent = await authedAgent();
     const res = await agent.get('/api/data');
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ scenes: [], sessions: [], campaigns: [] });
+    expect(res.body).toEqual({ scenes: [], adventures: [], campaigns: [] });
   });
 
   it('returns data from files when they exist', async () => {
@@ -49,23 +49,23 @@ describe('POST /api/save', () => {
 
   it('persists scenes readable via GET /api/data', async () => {
     const agent = await authedAgent();
-    const sessions = [{ id: 'sess-1', title: 'Session One', scenes: [] }];
-    await agent.post('/api/save').send({ sessions });
+    const adventures = [{ id: 'sess-1', title: 'Session One', scenes: [] }];
+    await agent.post('/api/save').send({ adventures });
     const res = await agent.get('/api/data');
-    expect(res.body.sessions).toEqual(sessions);
+    expect(res.body.adventures).toEqual(adventures);
   });
 
   it('saves all three collections in one call', async () => {
     const agent = await authedAgent();
     const payload = {
       scenes:    [{ id: 'sc', title: 'S' }],
-      sessions:  [{ id: 'se', title: 'S', scenes: [] }],
+      adventures:  [{ id: 'se', title: 'S', scenes: [] }],
       campaigns: [{ id: 'ca', title: 'C' }],
     };
     await agent.post('/api/save').send(payload);
     const res = await agent.get('/api/data');
     expect(res.body.scenes).toEqual(payload.scenes);
-    expect(res.body.sessions).toEqual(payload.sessions);
+    expect(res.body.adventures).toEqual(payload.adventures);
     expect(res.body.campaigns).toEqual(payload.campaigns);
   });
 
