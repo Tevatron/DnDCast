@@ -3,6 +3,7 @@
 
 import express        from 'express';
 import session        from 'express-session';
+import FileStore      from 'session-file-store';
 import bcrypt         from 'bcryptjs';
 import { createServer } from 'http';
 import { WebSocketServer, WebSocket } from 'ws';
@@ -21,10 +22,12 @@ const PUBLIC_DIR = join(__dirname, 'public');
 // temporary directories without touching real data.
 
 export async function createApp(config, opts = {}) {
-  const dataDir   = opts.dataDir   ?? join(__dirname, 'data');
-  const assetsDir = opts.assetsDir ?? join(__dirname, 'assets');
+  const dataDir     = opts.dataDir     ?? join(__dirname, 'data');
+  const assetsDir   = opts.assetsDir   ?? join(__dirname, 'assets');
+  const sessionsDir = opts.sessionsDir ?? join(__dirname, 'sessions');
 
   await mkdir(dataDir, { recursive: true });
+  await mkdir(sessionsDir, { recursive: true });
   await mkdir(join(assetsDir, 'images'), { recursive: true });
   await mkdir(join(assetsDir, 'audio'),  { recursive: true });
 
@@ -43,12 +46,20 @@ export async function createApp(config, opts = {}) {
   const wss    = new WebSocketServer({ noServer: true });
   const wsTokens = new Map();
 
+  const SessionFileStore = FileStore(session);
+  // Tests pass inMemoryStore:true to avoid file-system session state between requests.
+  const SESSION_TTL = 30 * 24 * 60 * 60; // 30 days in seconds
+  const store = opts.inMemoryStore
+    ? undefined
+    : new SessionFileStore({ path: sessionsDir, ttl: SESSION_TTL, retries: 1, logFn: () => {} });
+
   app.use(express.json());
   app.use(session({
+    ...(store ? { store } : {}),
     secret:            config.sessionSecret,
     resave:            false,
     saveUninitialized: false,
-    cookie:            { sameSite: 'strict', httpOnly: true },
+    cookie:            { sameSite: 'strict', httpOnly: true, maxAge: SESSION_TTL * 1000 },
   }));
 
   // ── Auth middleware ─────────────────────────────────────────────────

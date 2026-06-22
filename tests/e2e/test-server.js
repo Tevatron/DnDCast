@@ -19,7 +19,7 @@ const config = {
 // Isolated temp dir so e2e tests don't touch the real data/ directory.
 const dataDir = await mkdtemp(join(tmpdir(), 'dndcast-e2e-'));
 
-const { app, server, resetWsState } = await createApp(config, { dataDir });
+const { app, server, resetWsState } = await createApp(config, { dataDir, inMemoryStore: true });
 
 // Test-only routes — not mounted in production.
 app.post('/_test_/reset', (req, res) => { resetWsState(); res.json({ ok: true }); });

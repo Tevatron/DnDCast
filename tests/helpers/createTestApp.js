@@ -23,7 +23,7 @@ export function makeTestContext() {
 
   async function setup() {
     dataDir = await mkdtemp(join(tmpdir(), 'dndcast-test-'));
-    ({ app, server, wsTokens } = await createApp(TEST_CONFIG, { dataDir }));
+    ({ app, server, wsTokens } = await createApp(TEST_CONFIG, { dataDir, inMemoryStore: true }));
     await new Promise(resolve => server.listen(0, resolve));
   }
 

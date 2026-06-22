@@ -14,6 +14,13 @@ assets/audio/*
 !assets/images/.gitkeep
 !assets/audio/.gitkeep
 
+# ── Session storage (persisted login state, never commit) ───────────────
+sessions/
+
+# ── Playwright test artifacts ────────────────────────────────────────────
+playwright-report/
+test-results/
+
 # ── Dependencies ────────────────────────────────────────────────────────
 node_modules/
 
