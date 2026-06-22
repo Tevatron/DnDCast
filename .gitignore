@@ -24,6 +24,9 @@ test-results/
 # ── Dependencies ────────────────────────────────────────────────────────
 node_modules/
 
+# ── Private notes / local config docs (never commit) ────────────────────
+private/
+
 # ── OS / editor noise ───────────────────────────────────────────────────
 .DS_Store
 Thumbs.db

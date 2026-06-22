@@ -115,12 +115,17 @@ node setup.js
 
 Set `"port": 3001` in the generated `config.json` so dev (3000) and prod (3001) don't collide.
 
-Deploy updates when ready:
+**Keep the server running with PM2** so it survives machine restarts:
 ```
-cd /path/to/dndcast-prod
-git pull
-npm install
+npm install -g pm2
+pm2 start server.js --name dndcast
+pm2 save
+pm2 startup   # follow the printed instructions to register the startup hook
 ```
+
+**Deploy updates when ready** — double-click `deploy.bat` (Windows) or run `./deploy.sh` (Mac/Linux) from the prod folder. The script pulls `main`, installs any new dependencies, and restarts the server via PM2.
+
+> The deploy scripts assume PM2 is running the server under the name `dndcast`. If you're running the server another way (e.g. manually with `npm start`), just restart it yourself after `git pull && npm install`.
 
 ---
 
