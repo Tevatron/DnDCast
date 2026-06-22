@@ -232,6 +232,6 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const port = config.port ?? 3000;
   server.listen(port, () => {
     console.log(`DnDCast running at http://localhost:${port}`);
-    if (config.tunnel !== false) tryStartTunnel(port);
+    if (config.tunnel === true) tryStartTunnel(port);
   });
 }

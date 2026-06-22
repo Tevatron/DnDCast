@@ -4,165 +4,180 @@ A browser-based D&D session player. Show fullscreen scene art, play ambient audi
 
 ---
 
-## First-time setup
+## Quick start
 
-Requires [Node.js](https://nodejs.org) (v14+).
+**First time only:**
+1. Install [Node.js](https://nodejs.org) (v20 or later)
+2. Start the server:
+   - **Windows:** double-click `start.bat`
+   - **Mac:** open Terminal, drag the DnDCast folder in, run `npm start`
+   - **Linux:** open a terminal in the DnDCast folder, run `npm start`
+3. The first launch asks you to choose a password, then the server is running at `http://localhost:3000`
 
-```
-npm install
-node setup.js
-```
+**Every time after that:** same step 2 above — enter your password when prompted.
 
-`setup.js` asks you to choose a password. It writes a `config.json` with your hashed password and a session secret. This file is gitignored — never commit it.
-
----
-
-## Starting the server
-
-```
-npm start
-```
-
-Open `http://localhost:3000` in your browser. You'll be prompted for your password on first visit.
+That's it. The rest of this document is for when you want to do more.
 
 ---
 
 ## The three modes
 
-The home page offers three modes:
+The home page has three cards:
 
-| Mode | URL | Purpose |
-|------|-----|---------|
-| **Cast** | `player.html` | Displays scene art and plays audio. This is the tab you display on the TV. |
-| **DM Control** | `player.html?role=dm` | Your private control surface. Same controls as Cast plus a notes/script overlay. Muted by default. Every action syncs to the Cast tab in real time. |
-| **Editor** | `editor.html` | Create and manage campaigns, sessions, and scenes. |
+| Mode | What it's for |
+|------|--------------|
+| **Cast** | The display tab — shows scene art and plays audio. This is what you cast or show on the TV. |
+| **DM Control** | Your private control surface. Notes and script are visible only here. Every action syncs to Cast in real time. |
+| **Editor** | Build your campaigns, sessions, and scenes. Upload art and audio. |
 
 ---
 
 ## Running a session
 
-### Option A — Two tabs, same browser (Chrome Tab Cast)
+### Option A — Chrome Tab Cast (same computer)
 
-1. Open **Cast** in one tab and **DM Control** in another (same Chrome window).
+1. Open **Cast** in one tab and **DM Control** in another.
 2. Click **Start Session** in both tabs.
-3. In the DM tab, pick a campaign and session.
-4. Cast only the Cast tab to your TV: **Chrome menu → Cast… → Sources → Cast tab**.
-5. Drive everything from the DM tab. The Cast tab follows automatically.
+3. In DM, pick your campaign and session.
+4. Cast the Cast tab to your TV: **Chrome menu → Cast → Sources → Cast tab**.
+5. Control everything from the DM tab.
 
-### Option B — Separate devices (TV native browser or second PC)
+### Option B — TV native browser (same network)
 
-1. Expose the server with a public URL (see below).
-2. On the TV browser (or second device), navigate to your URL and log in.
-3. Open the Cast page. Click Start Session.
-4. On your laptop, open DM Control and start your session.
-5. Both devices connect to the same WebSocket server and sync automatically.
+If your TV and PC are on the same Wi-Fi, the TV browser can reach the server directly — no public URL needed.
 
-> **DM audio:** The DM tab is muted by default so only the Cast tab makes sound. Click **🔊 Listen here** in the DM toolbar if you want to hear audio locally too.
+1. Find your machine's local IP:
+   - **Windows:** run `ipconfig` — look for **IPv4 Address** under your Wi-Fi adapter
+   - **Mac:** run `ipconfig getifaddr en0`
+   - **Linux:** run `hostname -I`
+   
+   It will look something like `192.168.1.23`.
+2. On the TV browser, navigate to `http://192.168.1.23:3000` and log in.
+3. Open Cast, click Start Session.
+4. On your laptop, open DM Control and start your session. Both sync automatically.
 
----
-
-## Exposing publicly (Cloudflare Tunnel)
-
-To access DnDCast from other devices or over the internet without port-forwarding:
-
-1. Install [`cloudflared`](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/).
-2. With the server running, open a second terminal and run:
-   ```
-   cloudflared tunnel --url http://localhost:3000
-   ```
-3. Cloudflare prints a public HTTPS URL (e.g. `https://random-words.trycloudflare.com`). Share it with anyone who needs access.
-
-For a persistent custom URL (e.g. `dndcast.yourdomain.com`), set up a named tunnel in the Cloudflare dashboard.
+> **DM audio:** The DM tab is muted by default so only the Cast tab makes sound. Click **🔊** in the DM toolbar to hear audio locally too.
 
 ---
 
 ## Adding content
 
-Use the **Editor** to create campaigns, sessions, and scenes. All data is saved to the server automatically when you save a scene, session, or campaign.
+Open **Editor** from the home page.
 
-**To add images and audio:**
-1. Open the Editor and create or edit a scene.
-2. Click **Browse** next to the Image or Audio field.
-3. Pick any file from your machine — it uploads to the server and the path is filled in automatically.
+- **Scenes** — set a title, upload an image, upload an audio track, write DM notes and read-aloud script.
+- **Sessions** — group scenes in play order using the checkbox picker.
+- **Campaigns** — group sessions.
 
-Asset files are stored in `assets/images/` and `assets/audio/` on the server machine. These are gitignored.
+Everything saves to the server automatically. No manual file management needed — just click Browse to upload an image or audio file from anywhere on your machine.
 
 ---
 
-## Controls
+## Getting a public URL (optional)
 
-### Primary toolbar (always visible)
+If you want to access DnDCast from **outside your home network** — a venue, a friend's house, or anywhere not on your Wi-Fi — you need a public URL. This is optional; most home setups don't need it.
 
-| Button | Action |
-|--------|--------|
-| ⏹ | Stop session and return home |
-| ⏮ | Previous scene (`←`) |
-| ▶ / ⏸ | Play / Pause audio |
-| ⏭ | Next scene (`→` or `Space`) |
-| ☰ | Open scene list (type to filter) |
-| Slider | Volume |
-| ⋯ | More options (overflow menu) |
-| ⛶ | Fullscreen (`F`) |
+### Temporary URL (no account required)
+
+Install [cloudflared](https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/downloads/), then while the server is running:
+
+```
+cloudflared tunnel --url http://localhost:3000
+```
+
+It prints a URL like `https://random-words.trycloudflare.com`. Share it with anyone who needs access. The URL changes every time you restart.
+
+### Persistent custom URL
+
+For a permanent address like `dndcast.yourdomain.com`:
+
+1. Create a free [Cloudflare account](https://cloudflare.com) and add a domain you own.
+2. Run `cloudflared login` to authorize.
+3. Create a named tunnel: `cloudflared tunnel create dndcast`
+4. Configure `~/.cloudflared/config.yml` to route your domain to `http://localhost:3000`.
+5. Add the DNS record: `cloudflared tunnel route dns dndcast dndcast.yourdomain.com`
+6. Install as a background service so it runs automatically on startup:
+   - **Windows:** `cloudflared service install`
+   - **Mac:** `sudo cloudflared service install`
+   - **Linux:** follow [Cloudflare's systemd guide](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/run-tunnel/as-a-service/linux/)
+
+---
+
+## Deploying to a separate production directory
+
+If you're developing actively, keep a separate production folder so code changes don't accidentally affect a running session:
+
+```
+git clone <your-repo> /path/to/dndcast-prod
+cd /path/to/dndcast-prod
+npm install
+node setup.js
+```
+
+Set `"port": 3001` in the generated `config.json` so dev (3000) and prod (3001) don't collide.
+
+Deploy updates when ready:
+```
+cd /path/to/dndcast-prod
+git pull
+npm install
+```
+
+---
+
+## Controls reference
+
+### Primary toolbar
+
+| Button | Action | Key |
+|--------|--------|-----|
+| ⏹ | Stop and return home | |
+| ⏮ | Previous scene | `←` |
+| ▶ / ⏸ | Play / Pause | |
+| ⏭ | Next scene | `→` or `Space` |
+| ☰ | Scene list (type to filter) | |
+| ⋯ | More options | |
+| ⛶ | Fullscreen | `F` |
 
 ### Overflow menu (⋯)
 
-| Button | Action |
-|--------|--------|
-| ● | Blackout screen (`B`) |
-| T | Toggle scene title overlay (`T`) |
-| ↺ | Switch session |
-| □ | Presentation mode — hides all controls (`P`) |
+| Button | Action | Key |
+|--------|--------|-----|
+| ● | Blackout | `B` |
+| T | Scene title overlay | `T` |
+| ↺ | Switch session | |
+| □ | Presentation mode | `P` |
 
-### DM-only toolbar buttons
+### DM-only
 
-| Button | Action |
-|--------|--------|
-| 📖 | Toggle notes/script overlay (`N`) |
-| 🔇 / 🔊 | Silence / listen locally |
-| ⊘ | Stage mode — suspends cast updates (`Z`) |
+| Button | Action | Key |
+|--------|--------|-----|
+| 📖 | Notes/script overlay | `N` |
+| 🔇 / 🔊 | Silence / listen locally | |
+| ⊘ | Stage mode — freeze cast updates | `Z` |
 
-**Stage mode:** While staged, you can freely navigate scenes on the DM tab without updating the Cast display. Disabling stage mode immediately pushes your current state to Cast.
-
-### Keyboard shortcuts
-
-| Key | Action |
-|-----|--------|
-| `→` or `Space` | Next scene |
-| `←` | Previous scene |
-| `B` | Blackout |
-| `M` | Mute / Unmute |
-| `F` | Fullscreen |
-| `T` | Toggle title overlay |
-| `P` | Presentation mode |
-| `N` | Toggle notes overlay (DM only) |
-| `Z` | Toggle stage mode (DM only) |
+**Stage mode:** Navigate freely on DM without updating the Cast display. Disable to push current state to Cast instantly.
 
 ---
 
 ## Troubleshooting
 
-**"Cannot GET /login" or blank page:**
-The server isn't running. Start it with `npm start` and navigate to `http://localhost:3000`.
+**Page won't load / "Cannot GET /login"** — The server isn't running. Double-click `start.bat`.
 
-**Cast tab shows "Waiting for DM…" and doesn't update:**
-Both tabs must connect to the same server. Make sure they're using the same URL (both `localhost:3000`, or both the same tunnel URL). Check that the server is running.
+**Cast shows "Waiting for DM…"** — Both tabs need to use the same URL. If using a tunnel, make sure both tabs use the tunnel URL, not localhost.
 
-**No audio after Start Session:**
-The browser blocked autoplay. Click ▶ in the control panel to start audio manually.
+**No audio after Start Session** — Browser blocked autoplay. Click ▶ to start manually.
 
-**Image or audio shows as "not found":**
-The file may not have been uploaded. Use the Browse button in the Editor to upload the file — it's copied to the server automatically. Manual file placement in `assets/` also works.
+**Image or audio not found** — Use the Browse button in the Editor to upload the file rather than placing it manually.
 
-**Scene changes don't appear on Cast:**
-Try refreshing both tabs so they reconnect to the WebSocket server.
+**Scene changes don't appear on Cast** — Refresh both tabs to reconnect to the server.
 
 ---
 
 ## Pre-session checklist
 
-- [ ] `npm start` is running
-- [ ] Logged in on all devices/tabs
+- [ ] Server is running (`start.bat`)
+- [ ] Logged in on all tabs / devices
 - [ ] Cast tab: Start Session clicked
-- [ ] DM tab: Start Session clicked, campaign and session selected
-- [ ] Cast is displaying on TV (Chrome Cast tab, or TV browser open to URL)
-- [ ] Switch a scene on DM — confirm Cast follows
+- [ ] DM tab: Start Session clicked, session selected
+- [ ] Cast is visible on TV
+- [ ] Test: change a scene on DM, confirm Cast follows
