@@ -95,6 +95,10 @@ export async function createApp(config, opts = {}) {
   // ── Protected routes ────────────────────────────────────────────────
   app.use(requireAuth);
 
+  // API responses must never be cached — stale data causes visible bugs
+  // (e.g. a cached empty adventures list after adventures.json is created).
+  app.use('/api/', (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
+
   app.get('/api/data', async (req, res) => {
     const [scenes, adventures, campaigns] = await Promise.all([
       readJson(dataDir, 'scenes.json'),
@@ -227,7 +231,7 @@ function tryStartTunnel(port) {
 
 // ── Entry point ───────────────────────────────────────────────────────
 // Only starts listening when run directly, not when imported by tests.
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (process.argv[1] === fileURLToPath(import.meta.url) || process.env.NODE_APP_INSTANCE !== undefined) {
   let config;
   try {
     config = JSON.parse(await readFile(join(__dirname, 'config.json'), 'utf8'));
