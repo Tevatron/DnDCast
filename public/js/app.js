@@ -122,6 +122,24 @@ const volumeSlider       = $('volume-slider');
 const muteBtn            = $('mute-btn');
 const tapPrev            = $('tap-prev');
 const tapNext            = $('tap-next');
+const drawerAddBtn       = $('drawer-add-btn');
+const quickSceneOverlay  = $('quick-scene-overlay');
+const qsForm             = $('quick-scene-form');
+const qsTitle            = $('qs-title');
+const qsImage            = $('qs-image');
+const qsImageBrowse      = $('qs-image-browse');
+const qsImageFile        = $('qs-image-file');
+const qsAudio            = $('qs-audio');
+const qsAudioBrowse      = $('qs-audio-browse');
+const qsAudioFile        = $('qs-audio-file');
+const qsSilent           = $('qs-silent');
+const qsNotes            = $('qs-notes');
+const qsScript           = $('qs-script');
+const qsFit              = $('qs-fit');
+const qsLoop             = $('qs-loop');
+const qsStatus           = $('qs-status');
+const qsCloseBtn         = $('qs-close-btn');
+const qsCancel           = $('qs-cancel');
 
 // ── Init / wiring ────────────────────────────────────────────────────
 function init() {
@@ -172,6 +190,17 @@ function init() {
   volumeSlider.addEventListener('input',  onVolumeChange);
   muteBtn.addEventListener('click',       e => { e.preventDefault(); toggleMute(); });
 
+  // Quick add-scene (DM only)
+  drawerAddBtn.addEventListener('click', openQuickScene);
+  qsCloseBtn.addEventListener('click',   closeQuickScene);
+  qsCancel.addEventListener('click',     closeQuickScene);
+  qsForm.addEventListener('submit',      e => { e.preventDefault(); saveQuickScene(); });
+  qsImageBrowse.addEventListener('click', () => qsImageFile.click());
+  qsAudioBrowse.addEventListener('click', () => qsAudioFile.click());
+  qsImageFile.addEventListener('change', () => uploadInto(qsImageFile, qsImage));
+  qsAudioFile.addEventListener('change', () => uploadInto(qsAudioFile, qsAudio));
+  qsSilent.addEventListener('change',    syncQsSilent);
+
   document.addEventListener('touchstart', onInteraction, { passive: true });
   document.addEventListener('mousemove',  onMouseMove);
   document.addEventListener('keydown',    onKeydown);
@@ -194,6 +223,7 @@ function applyRoleUI() {
     dmBadge.hidden       = false;
     dmOverlayBtn.hidden  = false;
     dmStageBtn.hidden    = false;
+    drawerAddBtn.hidden  = false;   // author scenes mid-session
     startSubtitle.textContent = 'DM Control';
     // DM uses the same local volume slider as everyone, but starts MUTED — the
     // cast tab is the room's sound, so the DM is silent until they raise it to
@@ -832,6 +862,122 @@ function loadState() {
 
   const fit = localStorage.getItem('dndcast_objectFit');
   if (fit === 'cover' || fit === 'contain') CONFIG.objectFit = fit;
+}
+
+// ── Quick add-scene (DM only) ────────────────────────────────────────
+// Author a scene mid-session and append it to the current adventure, without
+// leaving for the editor. Persists via /api/save (DM-gated server-side).
+function openQuickScene() {
+  qsForm.reset();
+  qsLoop.checked = true;
+  setQsStatus('', false);
+  syncQsSilent();
+  quickSceneOverlay.hidden = false;
+  qsTitle.focus();
+}
+
+function closeQuickScene() { quickSceneOverlay.hidden = true; }
+
+// Silent makes a custom audio path irrelevant — grey it out (mirrors the editor).
+function syncQsSilent() {
+  qsAudio.disabled       = qsSilent.checked;
+  qsAudioBrowse.disabled = qsSilent.checked;
+}
+
+function setQsStatus(msg, isError) {
+  qsStatus.textContent = msg;
+  qsStatus.className    = isError ? 'error' : '';
+}
+
+// Upload a chosen file to /api/upload and drop the returned path into a field.
+async function uploadInto(fileInput, pathInput) {
+  const file = fileInput.files[0];
+  if (!file) return;
+  setQsStatus('Uploading ' + file.name + '…', false);
+  try {
+    const body = new FormData();
+    body.append('file', file);
+    const res = await fetch('/api/upload', { method: 'POST', body });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const { path } = await res.json();
+    pathInput.value = path;
+    setQsStatus('Uploaded ' + file.name, false);
+  } catch (e) {
+    setQsStatus('Upload failed: ' + e.message, true);
+  }
+  fileInput.value = '';
+}
+
+async function saveQuickScene() {
+  const scene = {
+    title:     qsTitle.value.trim(),
+    image:     qsImage.value.trim(),
+    audio:     qsAudio.value.trim(),
+    notes:     qsNotes.value.trim(),
+    dmScript:  qsScript.value.trim(),
+    fit:       qsFit.value,
+    loopAudio: qsLoop.checked,
+    silent:    qsSilent.checked,
+  };
+  // Keep JSON clean — drop blanks/defaults (matches the editor's saveScene).
+  if (!scene.image)            delete scene.image;
+  if (!scene.audio)            delete scene.audio;
+  if (!scene.notes)            delete scene.notes;
+  if (!scene.dmScript)         delete scene.dmScript;
+  if (!scene.title)            delete scene.title;
+  if (!scene.silent)           delete scene.silent;
+  if (scene.fit === 'contain') delete scene.fit;
+  scene.id = uniqueSceneId(scene.title || 'scene');
+
+  allScenes.push(scene);
+
+  // Insert right after the current scene in a real adventure; for 'all'/standalone
+  // there's no adventure to edit, so it lands at the end of the full scene list.
+  let newIndex;
+  const adventure = allAdventures.find(a => a.id === activeAdventureId);
+  if (adventure) {
+    adventure.scenes = Array.isArray(adventure.scenes) ? adventure.scenes : [];
+    const at = Math.min(Math.max(currentIndex + 1, 0), adventure.scenes.length);
+    adventure.scenes.splice(at, 0, scene.id);
+    resolveAdventureScenesForActive();
+    newIndex = at;
+  } else {
+    currentScenes = [...allScenes];
+    newIndex = currentScenes.length - 1;
+  }
+
+  setQsStatus('Saving…', false);
+  try {
+    const res = await fetch('/api/save', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ scenes: allScenes, adventures: allAdventures, campaigns: allCampaigns }),
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+  } catch (e) {
+    setQsStatus('Save failed: ' + e.message, true);
+    return;                       // leave the modal open so nothing is lost
+  }
+
+  buildSceneList();
+  closeQuickScene();
+  closeDrawer();
+  goToScene(newIndex);            // present the new scene immediately
+}
+
+function uniqueSceneId(title) {
+  const base = slugify(title) || 'scene';
+  let id = base, n = 2;
+  while (allScenes.some(s => s.id === id)) id = base + '-' + (n++);
+  return id;
+}
+
+function slugify(text) {
+  return String(text).toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
 }
 
 // Effective audio for a scene, honoring the adventure soundtrack fallback.

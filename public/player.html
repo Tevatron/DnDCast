@@ -132,7 +132,10 @@
   <div id="scene-drawer" hidden>
     <div id="drawer-header">
       <span>Scenes</span>
-      <button id="close-drawer-btn" title="Close">&#x2715;</button>
+      <div class="drawer-header-actions">
+        <button id="drawer-add-btn" title="Create a new scene" hidden>+ New</button>
+        <button id="close-drawer-btn" title="Close">&#x2715;</button>
+      </div>
     </div>
     <ul id="scene-list"></ul>
     <div id="drawer-search-wrap">
@@ -141,6 +144,56 @@
     <div id="drawer-footer">
       <a href="index.html" class="editor-link">&#x2302; Home</a>
       <a href="editor.html" class="editor-link">&#x270F; Edit Scenes &amp; Sessions</a>
+    </div>
+  </div>
+
+  <!-- ── Quick add-scene modal (DM role only) ──────────────────── -->
+  <!-- Lets the DM author a scene mid-session without opening the editor.
+       The scene is appended to the current adventure and persisted. -->
+  <div id="quick-scene-overlay" hidden>
+    <div id="quick-scene-box">
+      <div id="qs-header">
+        <h2 class="picker-heading">New Scene</h2>
+        <button id="qs-close-btn" type="button" title="Cancel">&#x2715;</button>
+      </div>
+      <form id="quick-scene-form" autocomplete="off">
+        <label class="qs-field">Title
+          <input type="text" id="qs-title" placeholder="Scene title">
+        </label>
+        <div class="qs-field">Image
+          <div class="qs-path-row">
+            <input type="text" id="qs-image" placeholder="assets/images/scene.jpg">
+            <button type="button" id="qs-image-browse" class="qs-browse">Upload</button>
+            <input type="file" id="qs-image-file" accept="image/*" hidden>
+          </div>
+        </div>
+        <div class="qs-field">Audio <span class="qs-hint">(blank = adventure soundtrack)</span>
+          <div class="qs-path-row">
+            <input type="text" id="qs-audio" placeholder="assets/audio/track.mp3">
+            <button type="button" id="qs-audio-browse" class="qs-browse">Upload</button>
+            <input type="file" id="qs-audio-file" accept="audio/*" hidden>
+          </div>
+        </div>
+        <label class="qs-checkbox"><input type="checkbox" id="qs-silent"> No music — silence this scene</label>
+        <label class="qs-field">Notes
+          <textarea id="qs-notes" rows="2" placeholder="Private DM notes…"></textarea>
+        </label>
+        <label class="qs-field">Script
+          <textarea id="qs-script" rows="2" placeholder="Read-aloud text…"></textarea>
+        </label>
+        <label class="qs-field">Image fit
+          <select id="qs-fit">
+            <option value="contain">Contain — full image, letterboxed</option>
+            <option value="cover">Cover — fill screen, crop edges</option>
+          </select>
+        </label>
+        <label class="qs-checkbox"><input type="checkbox" id="qs-loop" checked> Loop audio</label>
+        <div id="qs-status"></div>
+        <div class="qs-actions">
+          <button type="submit" id="qs-save" class="qs-save">Add &amp; Show</button>
+          <button type="button" id="qs-cancel" class="text-btn">Cancel</button>
+        </div>
+      </form>
     </div>
   </div>
 
