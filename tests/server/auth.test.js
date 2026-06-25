@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
-import { makeTestContext, TEST_PASSWORD, login } from '../helpers/createTestApp.js';
+import { makeTestContext, TEST_PASSWORD, TEST_PLAYER_PASSWORD, login } from '../helpers/createTestApp.js';
 
 const ctx = makeTestContext();
 beforeAll(() => ctx.setup());
@@ -87,5 +87,50 @@ describe('Session-protected routes', () => {
 
     const res = await agent.get('/api/data');
     expect(res.status).toBe(401);
+  });
+});
+
+describe('Roles & access control', () => {
+  it('assigns role "dm" for the DM password', async () => {
+    const res = await request(ctx.app).post('/api/login').send({ password: TEST_PASSWORD });
+    expect(res.body.role).toBe('dm');
+  });
+
+  it('assigns role "player" for the player password', async () => {
+    const res = await request(ctx.app).post('/api/login').send({ password: TEST_PLAYER_PASSWORD });
+    expect(res.status).toBe(200);
+    expect(res.body.role).toBe('player');
+  });
+
+  it('/api/me reports the session role', async () => {
+    const dm = request.agent(ctx.app);
+    await login(dm);
+    expect((await dm.get('/api/me')).body.role).toBe('dm');
+
+    const player = request.agent(ctx.app);
+    await login(player, TEST_PLAYER_PASSWORD);
+    expect((await player.get('/api/me')).body.role).toBe('player');
+  });
+
+  it('forbids player-role from /api/save and /api/upload', async () => {
+    const player = request.agent(ctx.app);
+    await login(player, TEST_PLAYER_PASSWORD);
+    expect((await player.post('/api/save').send({ scenes: [] })).status).toBe(403);
+    expect((await player.post('/api/upload')).status).toBe(403);
+  });
+
+  it('redirects player-role away from the editor page', async () => {
+    const player = request.agent(ctx.app);
+    await login(player, TEST_PLAYER_PASSWORD);
+    const res = await player.get('/editor.html');
+    expect(res.status).toBe(302);
+    expect(res.headers.location).toBe('/');
+  });
+
+  it('allows DM-role to reach /api/save and the editor page', async () => {
+    const dm = request.agent(ctx.app);
+    await login(dm);
+    expect((await dm.post('/api/save').send({})).status).toBe(200);
+    expect((await dm.get('/editor.html')).status).toBe(200);
   });
 });

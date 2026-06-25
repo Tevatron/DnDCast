@@ -65,12 +65,24 @@ export async function createApp(config, opts = {}) {
   app.use(sessionMiddleware);
 
   // ── Auth middleware ─────────────────────────────────────────────────
+  // Sessions carry a role: 'dm' (full access) or 'player' (restricted). Legacy
+  // sessions authed before roles existed are treated as 'dm'.
+  const roleOf = req => req.session.role ?? (req.session.authed ? 'dm' : null);
+
   function requireAuth(req, res, next) {
     if (req.session.authed) return next();
     if (req.path === '/login') return next();
     if (req.path.startsWith('/_test_/')) return next(); // test helpers — no route exists in prod
     if (req.path.startsWith('/api/')) return res.status(401).json({ error: 'Unauthorized' });
     res.redirect('/login');
+  }
+
+  // DM-only routes (editor, content writes). Players are authenticated but
+  // forbidden here — the server is the authority, not the client's ?role= param.
+  function requireDM(req, res, next) {
+    if (roleOf(req) === 'dm') return next();
+    if (req.path.startsWith('/api/')) return res.status(403).json({ error: 'Forbidden' });
+    res.redirect('/');
   }
 
   // ── Public routes ───────────────────────────────────────────────────
@@ -81,11 +93,13 @@ export async function createApp(config, opts = {}) {
 
   app.post('/api/login', (req, res) => {
     const { password } = req.body;
-    if (!password || !compareSync(password, config.passwordHash)) {
-      return res.status(401).json({ error: 'Wrong password' });
-    }
+    let role = null;
+    if (password && compareSync(password, config.passwordHash)) role = 'dm';
+    else if (password && config.playerPasswordHash && compareSync(password, config.playerPasswordHash)) role = 'player';
+    if (!role) return res.status(401).json({ error: 'Wrong password' });
     req.session.authed = true;
-    res.json({ ok: true });
+    req.session.role   = role;
+    res.json({ ok: true, role });
   });
 
   app.post('/api/logout', (req, res) => {
@@ -99,6 +113,9 @@ export async function createApp(config, opts = {}) {
   // (e.g. a cached empty adventures list after adventures.json is created).
   app.use('/api/', (req, res, next) => { res.set('Cache-Control', 'no-store'); next(); });
 
+  // Lets the client discover its own role so it can't self-promote to DM via the URL.
+  app.get('/api/me', (req, res) => res.json({ role: roleOf(req) }));
+
   app.get('/api/data', async (req, res) => {
     const [scenes, adventures, campaigns] = await Promise.all([
       readJson(dataDir, 'scenes.json'),
@@ -108,7 +125,7 @@ export async function createApp(config, opts = {}) {
     res.json({ scenes, adventures, campaigns });
   });
 
-  app.post('/api/save', async (req, res) => {
+  app.post('/api/save', requireDM, async (req, res) => {
     const { scenes, adventures, campaigns } = req.body;
     await Promise.all([
       scenes     != null && writeJson(dataDir, 'scenes.json',     scenes),
@@ -118,11 +135,15 @@ export async function createApp(config, opts = {}) {
     res.json({ ok: true });
   });
 
-  app.post('/api/upload', upload.single('file'), (req, res) => {
+  app.post('/api/upload', requireDM, upload.single('file'), (req, res) => {
     if (!req.file) return res.status(400).json({ error: 'No file received' });
     const sub = req.file.mimetype.startsWith('audio/') ? 'audio' : 'images';
     res.json({ path: `assets/${sub}/${req.file.originalname}` });
   });
+
+  // Gate the editor page itself (it's otherwise served by express.static below)
+  // so player-role users can't open the editing UI at all.
+  app.get('/editor.html', requireDM, (req, res) => res.sendFile(join(PUBLIC_DIR, 'editor.html')));
 
   app.use('/assets', express.static(assetsDir));
   app.use(express.static(PUBLIC_DIR));
@@ -218,12 +239,14 @@ async function runSetup() {
   const ask = q => new Promise(resolve => rl.question(q, resolve));
 
   console.log('\nWelcome to DnDCast! First-time setup.\n');
-  const password = await ask('Choose a password: ');
+  const password = await ask('Choose a DM password: ');
   if (!password.trim()) { console.error('Password cannot be empty.'); process.exit(1); }
+  const playerPassword = (await ask('Choose a PLAYER password (optional — blank to disable player logins): ')).trim();
 
   const { hashSync } = bcrypt;
   const config = {
     passwordHash:  hashSync(password, 10),
+    ...(playerPassword ? { playerPasswordHash: hashSync(playerPassword, 10) } : {}),
     sessionSecret: crypto.randomBytes(32).toString('hex'),
     port:          3000,
   };

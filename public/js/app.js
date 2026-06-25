@@ -16,7 +16,15 @@ import { createSync } from './sync.js';
 import { filterList } from './utils.js';
 
 // ── Role ─────────────────────────────────────────────────────────────
-const role = new URLSearchParams(location.search).get('role') === 'dm' ? 'dm' : 'player';
+// DM mode requires BOTH ?role=dm AND a DM-level session. The server is the
+// authority (/api/me), so a player-level user can't self-promote by editing the
+// URL. Fail closed to 'player' if the role can't be read.
+const wantsDM     = new URLSearchParams(location.search).get('role') === 'dm';
+const sessionRole = await fetch('/api/me')
+  .then(r => r.ok ? r.json() : { role: 'player' })
+  .then(d => d.role)
+  .catch(() => 'player');
+const role = (wantsDM && sessionRole === 'dm') ? 'dm' : 'player';
 const isDM = role === 'dm';
 document.body.dataset.role = role;
 

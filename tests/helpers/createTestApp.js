@@ -7,13 +7,15 @@ import { join } from 'path';
 import bcrypt from 'bcryptjs';
 import { createApp } from '../../server.js';
 
-export const TEST_PASSWORD = 'test-password-correct';
+export const TEST_PASSWORD        = 'test-password-correct';
+export const TEST_PLAYER_PASSWORD = 'test-player-password';
 
 // Pre-hash with cost factor 1 for test speed (bcrypt is slow by design).
 export const TEST_CONFIG = {
-  passwordHash:  bcrypt.hashSync(TEST_PASSWORD, 1),
-  sessionSecret: 'test-session-secret-not-for-production',
-  port:          0,
+  passwordHash:       bcrypt.hashSync(TEST_PASSWORD, 1),
+  playerPasswordHash: bcrypt.hashSync(TEST_PLAYER_PASSWORD, 1),
+  sessionSecret:      'test-session-secret-not-for-production',
+  port:               0,
 };
 
 // Creates an isolated app + temp data directory.
@@ -42,12 +44,13 @@ export function makeTestContext() {
   };
 }
 
-// Log in via the API. Returns a Cookie-header string for the session, so a raw
-// `ws` client can authenticate its upgrade the same way a browser would.
-export async function login(agent) {
+// Log in via the API (DM by default; pass TEST_PLAYER_PASSWORD for a player).
+// Returns a Cookie-header string for the session, so a raw `ws` client can
+// authenticate its upgrade the same way a browser would.
+export async function login(agent, password = TEST_PASSWORD) {
   const res = await agent
     .post('/api/login')
-    .send({ password: TEST_PASSWORD });
+    .send({ password });
   const setCookie = res.headers['set-cookie'] ?? [];
   return setCookie.map(c => c.split(';')[0]).join('; ');
 }
