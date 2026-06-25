@@ -592,8 +592,14 @@ function hidePlaceholder() { scenePlaceholder.hidden = true; }
 
 // ── DM notes/script overlay ──────────────────────────────────────────
 function renderDmOverlay(scene) {
-  dmNotesText.textContent  = scene.notes    || '(none)';
-  dmScriptText.textContent = scene.dmScript || '(none)';
+  const script = scene.dmScript || '';
+  const notes  = scene.notes    || '';
+  dmScriptText.textContent = script;
+  dmNotesText.textContent  = notes;
+  // Hide a card entirely when its text is empty; cards size to their content.
+  dmScriptText.closest('.dm-note-card').hidden = !script;
+  dmNotesText.closest('.dm-note-card').hidden  = !notes;
+  dmNotesOverlay.classList.toggle('single', !script !== !notes);  // exactly one present
   applyDmOverlayVisibility();
 }
 
@@ -604,8 +610,11 @@ function toggleDmOverlay() {
 }
 
 function applyDmOverlayVisibility() {
-  // Overlay only exists in DM role; hidden when off or before a scene loads.
-  dmNotesOverlay.hidden = !(isDM && dmOverlayVisible && currentIndex >= 0);
+  // Overlay only exists in DM role; hidden when off, before a scene loads, or
+  // when the current scene has neither script nor notes (nothing to show).
+  const scene = currentScenes[currentIndex];
+  const hasContent = !!(scene && (scene.dmScript || scene.notes));
+  dmNotesOverlay.hidden = !(isDM && dmOverlayVisible && currentIndex >= 0 && hasContent);
 }
 
 function toggleOverflow() { overflowPanel.hidden = !overflowPanel.hidden; }

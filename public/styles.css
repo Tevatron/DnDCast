@@ -190,12 +190,15 @@ body.home-page { overflow: auto; }
   z-index: 16;
   display: flex;
   gap: 1rem;
-  align-items: stretch;
+  /* Cards size to their text and only grow to fill (then scroll) when long. */
+  align-items: flex-start;
 }
 
 .dm-note-card {
-  flex: 1 1 0;
+  flex: 0 1 auto;
   min-width: 0;
+  max-width: 60%;
+  max-height: 100%;            /* cap at the overlay area; longer text scrolls */
   display: flex;
   flex-direction: column;
   background: rgba(0, 0, 0, 0.74);
@@ -208,7 +211,7 @@ body.home-page { overflow: auto; }
 }
 
 /* Notes card (second) is the secondary read — keep it a touch narrower. */
-.dm-note-card:nth-child(2) { flex: 0 1 34%; }
+.dm-note-card:nth-child(2) { max-width: 40%; }
 
 .dm-note-label {
   flex-shrink: 0;
@@ -223,7 +226,7 @@ body.home-page { overflow: auto; }
 }
 
 .dm-note-body {
-  flex: 1;
+  min-height: 0;               /* allow the body to shrink so overflow-y can scroll */
   overflow-y: auto;
   font-size: 1.05rem;
   line-height: 1.65;
@@ -237,7 +240,11 @@ body.home-page { overflow: auto; }
 /* Stack the cards on narrow/portrait screens */
 @media (max-width: 700px) {
   #dm-notes-overlay { flex-direction: column; }
-  .dm-note-card:nth-child(2) { flex: 1 1 0; }
+  .dm-note-card,
+  .dm-note-card:nth-child(2) { max-width: 100%; }
+  /* When both cards show, cap each so two long ones each scroll; a lone card
+     (overlay.single) keeps the full height. */
+  #dm-notes-overlay:not(.single) .dm-note-card { max-height: 50%; }
 }
 
 /* Waiting-for-DM overlay (player follower) */
