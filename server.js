@@ -91,6 +91,12 @@ export async function createApp(config, opts = {}) {
     res.sendFile(join(PUBLIC_DIR, 'login.html'));
   });
 
+  // The login page is served before the auth gate, so its stylesheet must be
+  // reachable without a session — otherwise express.static (mounted after
+  // requireAuth) redirects the .css request to /login and the page renders
+  // unstyled. CSS isn't sensitive, so expose just this asset pre-auth.
+  app.get('/styles.css', (req, res) => res.sendFile(join(PUBLIC_DIR, 'styles.css')));
+
   app.post('/api/login', (req, res) => {
     const { password } = req.body;
     let role = null;

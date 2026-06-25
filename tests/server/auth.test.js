@@ -34,6 +34,12 @@ describe('Unauthenticated access', () => {
     const res = await request(ctx.app).get('/login');
     expect(res.status).toBe(200);
   });
+
+  it('serves /styles.css without auth so the login page is styled', async () => {
+    const res = await request(ctx.app).get('/styles.css');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toMatch(/css/);
+  });
 });
 
 describe('POST /api/login', () => {
