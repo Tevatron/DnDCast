@@ -283,6 +283,31 @@ describe('Player-role sanitized view', () => {
     dm.close();
   });
 
+  it('resolves the active image within a multi-image scene by imageIndex', async () => {
+    const dmAgent = request.agent(ctx.app);
+    await login(dmAgent);
+    await dmAgent.post('/api/save').send({
+      scenes: [{ id: 'gallery', images: ['img/a.jpg', 'img/b.jpg', 'img/c.jpg'] }],
+      adventures: [{ id: 'adv', title: 'A', scenes: ['gallery'] }],
+    });
+
+    const player = await connect(ctx.port, await cookie(TEST_PLAYER_PASSWORD), 'img-room');
+    const dm     = await connect(ctx.port, await cookie(),                    'img-room');
+
+    async function imageAt(imageIndex) {
+      const received = waitForMessage(player);
+      dm.send(JSON.stringify({ activeAdventureId: 'adv', sceneIndex: 0, imageIndex, paused: false }));
+      return (await received).image;
+    }
+
+    expect(await imageAt(0)).toBe('img/a.jpg');
+    expect(await imageAt(2)).toBe('img/c.jpg');
+    expect(await imageAt(9)).toBe('img/c.jpg');   // clamped to the last image
+
+    player.close();
+    dm.close();
+  });
+
   it('tells players to wait when the DM has no scene selected', async () => {
     const player = await connect(ctx.port, await cookie(TEST_PLAYER_PASSWORD), 'wait-room');
     const dm     = await connect(ctx.port, await cookie(),                    'wait-room');

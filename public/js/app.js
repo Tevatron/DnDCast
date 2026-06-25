@@ -43,6 +43,7 @@ let activeCampaignId  = null;
 let activeAdventureId = null;
 
 let currentIndex     = -1;        // -1 = nothing shown yet
+let currentImageIndex = 0;        // which image within the current scene
 let volume           = 1;
 let sessionStarted   = false;
 let titleVisible     = false;
@@ -479,7 +480,16 @@ function updateAdventureLabel() {
 }
 
 // ── Scene navigation ─────────────────────────────────────────────────
-function goToScene(index) {
+// A scene can hold multiple images (scene.images); the DM steps through them,
+// then crosses to the next/previous scene. The image list falls back to the
+// single scene.image for backward compatibility.
+function sceneImages(scene) {
+  if (scene && Array.isArray(scene.images) && scene.images.length) return scene.images;
+  return scene && scene.image ? [scene.image] : [];
+}
+
+// imagePos: 'first' (default), 'last', or a numeric index — which image to show.
+function goToScene(index, imagePos = 'first') {
   if (!currentScenes.length) return;
   index = Math.max(0, Math.min(index, currentScenes.length - 1));
   currentIndex = index;
@@ -489,26 +499,61 @@ function goToScene(index) {
   const scene = currentScenes[index];
   clearError();
 
-  const imgGen = ++imageGeneration;
-  loadSceneImage(scene.image, imgGen, scene.title, scene.fit);
-  if (index + 1 < currentScenes.length && currentScenes[index + 1].image) {
-    new Image().src = currentScenes[index + 1].image;   // warm next image
-  }
+  const imgs = sceneImages(scene);
+  currentImageIndex = imagePos === 'last' ? Math.max(0, imgs.length - 1)
+                    : (typeof imagePos === 'number' ? Math.max(0, Math.min(imagePos, imgs.length - 1)) : 0);
 
-  sceneCounter.textContent = (index + 1) + ' / ' + currentScenes.length;
+  showCurrentImage(scene);
+  // Warm the first image of the next scene for a snappy advance.
+  const next = currentScenes[index + 1];
+  if (next && sceneImages(next)[0]) new Image().src = sceneImages(next)[0];
+
   titleOverlay.textContent = scene.title || '';
   notesContent.textContent = scene.notes || '(no notes for this scene)';
   if (isDM) renderDmOverlay(scene);
   updateSceneListHighlight();
+  updateCounter();
 
   const adventure = allAdventures.find(a => a.id === activeAdventureId);
   audio.play(sceneAudio(scene, adventure));
   broadcastState();
 }
 
+// Render the image at currentImageIndex and warm the next one within the scene.
+function showCurrentImage(scene) {
+  const imgs = sceneImages(scene);
+  const imgGen = ++imageGeneration;
+  loadSceneImage(imgs[currentImageIndex] || '', imgGen, scene.title, scene.fit);
+  if (imgs[currentImageIndex + 1]) new Image().src = imgs[currentImageIndex + 1];
+}
+
+function updateCounter() {
+  const imgs = sceneImages(currentScenes[currentIndex]);
+  let txt = (currentIndex + 1) + ' / ' + currentScenes.length;
+  if (imgs.length > 1) txt += '  ·  ▦ ' + (currentImageIndex + 1) + '/' + imgs.length;
+  sceneCounter.textContent = txt;
+}
+
+// Show a specific image within the current scene (no scene change).
+function setImageIndex(i) {
+  const scene = currentScenes[currentIndex];
+  if (!scene) return;
+  const imgs = sceneImages(scene);
+  currentImageIndex = Math.max(0, Math.min(i, imgs.length - 1));
+  showCurrentImage(scene);
+  updateCounter();
+  broadcastState();
+}
+
+// Prev/next: step within the scene's images first, then cross scene boundaries.
 function changeScene(delta) {
   if (!sessionStarted || !currentScenes.length) return;
-  goToScene(currentIndex + delta);
+  const imgs = sceneImages(currentScenes[currentIndex]);
+  const target = currentImageIndex + delta;
+  if (imgs.length > 1 && target >= 0 && target < imgs.length) { setImageIndex(target); return; }
+  const newIndex = Math.max(0, Math.min(currentIndex + delta, currentScenes.length - 1));
+  if (newIndex === currentIndex) { setImageIndex(target); return; }   // clamp at the ends
+  goToScene(newIndex, delta > 0 ? 'first' : 'last');
 }
 
 function loadSceneImage(src, gen, sceneTitle, fit) {
@@ -714,6 +759,7 @@ function broadcastState() {
     activeCampaignId,
     activeAdventureId,
     sceneIndex:   currentIndex,
+    imageIndex:   currentImageIndex,
     paused:       !wantPlaying,
     blackout:     blackoutActive,
     titleVisible,
@@ -752,8 +798,11 @@ function applyRemoteState(s) {
   if (s.sceneIndex < 0) return;                // DM hasn't picked a scene yet
   waitingOverlay.hidden = true;                // a real scene is incoming
 
+  const wantImage = s.imageIndex ?? 0;
   if (adventureChanged || s.sceneIndex !== currentIndex) {
-    goToScene(s.sceneIndex);                   // plays the new scene
+    goToScene(s.sceneIndex, wantImage);        // plays the new scene at the DM's image
+  } else if (wantImage !== currentImageIndex) {
+    setImageIndex(wantImage);                  // same scene, DM stepped the image
   }
 
   if (s.paused !== audio.isPaused()) {

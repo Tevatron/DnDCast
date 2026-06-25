@@ -357,6 +357,21 @@ html, body {
 .browse-btn:hover   { background: #222; color: #bbb; }
 .browse-btn.hidden  { display: none; }
 
+/* Multi-image scene rows */
+.image-row {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  margin-bottom: 0.4rem;
+}
+.image-row input[type="text"] { flex: 1; }
+
+.btn-small {
+  font-size: 0.78rem;
+  padding: 0.25rem 0.6rem;
+  margin-top: 0.1rem;
+}
+
 .checkbox-label {
   display: flex;
   align-items: center;
