@@ -62,12 +62,16 @@
             </div>
           </div>
           <div class="field-label">
-            Audio path <span class="field-hint">(leave blank for silent scene)</span>
+            Audio path <span class="field-hint">(blank = use the adventure's soundtrack)</span>
             <div class="path-row">
               <input type="text" name="audio" placeholder="assets/audio/track.mp3">
               <button type="button" class="browse-btn" data-field="audio" data-type="audio">Browse</button>
             </div>
           </div>
+          <label class="checkbox-label">
+            <input type="checkbox" name="silent">
+            No music — silence this scene (ignore the adventure soundtrack)
+          </label>
           <label class="field-label">
             DM Notes <span class="field-hint">(visible in the control panel)</span>
             <textarea name="notes" rows="3" placeholder="Private notes for the DM..."></textarea>
@@ -126,6 +130,13 @@
               <option value="">(none)</option>
             </select>
           </label>
+          <div class="field-label">
+            Soundtrack <span class="field-hint">(loops on scenes with no audio of their own)</span>
+            <div class="path-row">
+              <input type="text" name="soundtrack" placeholder="assets/audio/theme.mp3">
+              <button type="button" class="browse-btn" data-field="soundtrack" data-type="audio">Browse</button>
+            </div>
+          </div>
         </form>
 
         <!-- Scene list manager -->

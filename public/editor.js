@@ -74,6 +74,7 @@ function init() {
   addSceneBtn.addEventListener('click', () => openSceneEdit(null));
   sceneForm.addEventListener('submit', e => { e.preventDefault(); saveScene(); });
   deleteSceneBtn.addEventListener('click', deleteScene);
+  sceneForm.querySelector('[name="silent"]').addEventListener('change', syncSilentState);
 
   // Auto-slugify scene title → id
   const sceneTitle = sceneForm.querySelector('[name="title"]');
@@ -122,7 +123,7 @@ function init() {
   const canBrowse = 'showOpenFilePicker' in window;
   document.querySelectorAll('.browse-btn').forEach(btn => {
     if (!canBrowse) { btn.classList.add('hidden'); return; }
-    btn.addEventListener('click', () => browseFile(btn.dataset.field, btn.dataset.type));
+    btn.addEventListener('click', () => browseFile(btn.closest('form'), btn.dataset.field, btn.dataset.type));
   });
 
   // Warn before leaving with unsaved changes
@@ -178,7 +179,7 @@ function flashSaveBtn(text) {
   setTimeout(() => { saveBtn.textContent = orig; }, 2000);
 }
 
-async function browseFile(fieldName, fileType) {
+async function browseFile(form, fieldName, fileType) {
   const isImage = fileType === 'image';
   const types   = isImage
     ? [{ description: 'Images', accept: { 'image/*': ['.jpg', '.jpeg', '.png', '.webp', '.gif'] } }]
@@ -194,7 +195,7 @@ async function browseFile(fieldName, fileType) {
     if (!res.ok) throw new Error('Upload failed: HTTP ' + res.status);
     const { path } = await res.json();
 
-    const input = sceneForm.querySelector('[name="' + fieldName + '"]');
+    const input = (form || sceneForm).querySelector('[name="' + fieldName + '"]');
     if (input) input.value = path;
     showStatus(`Uploaded: ${file.name}`, 'success');
   } catch (e) {
@@ -258,8 +259,18 @@ function openSceneEdit(idx) {
   f.querySelector('[name="dmScript"]').value = scene.dmScript || '';
   f.querySelector('[name="fit"]').value      = scene.fit === 'cover' ? 'cover' : 'contain';
   f.querySelector('[name="loopAudio"]').checked = scene.loopAudio !== false;
+  f.querySelector('[name="silent"]').checked    = !!scene.silent;
+  syncSilentState();
 
   sceneEditPanel.hidden = false;
+}
+
+// "No music" makes the custom audio path irrelevant — grey it out when checked.
+function syncSilentState() {
+  const silent = sceneForm.querySelector('[name="silent"]').checked;
+  sceneForm.querySelector('[name="audio"]').disabled = silent;
+  const browse = sceneForm.querySelector('.browse-btn[data-field="audio"]');
+  if (browse) browse.disabled = silent;
 }
 
 function saveScene() {
@@ -282,6 +293,7 @@ function saveScene() {
     dmScript:  f.querySelector('[name="dmScript"]').value.trim() || '',
     fit:       f.querySelector('[name="fit"]').value,
     loopAudio: f.querySelector('[name="loopAudio"]').checked,
+    silent:    f.querySelector('[name="silent"]').checked,
   };
 
   // Remove fields that match defaults to keep JSON clean
@@ -289,6 +301,7 @@ function saveScene() {
   if (!scene.audio)            delete scene.audio;
   if (!scene.notes)            delete scene.notes;
   if (!scene.dmScript)         delete scene.dmScript;
+  if (!scene.silent)           delete scene.silent;
   if (scene.fit === 'contain') delete scene.fit;  // contain is the default; omit it
 
   if (editingSceneIdx !== null) {
@@ -356,8 +369,9 @@ function openAdventureEdit(idx) {
 
   const adventure = idx !== null ? editorAdventures[idx] : {};
   const f = adventureForm;
-  f.querySelector('[name="title"]').value = adventure.title || '';
-  f.querySelector('[name="id"]').value    = adventure.id    || '';
+  f.querySelector('[name="title"]').value      = adventure.title      || '';
+  f.querySelector('[name="id"]').value         = adventure.id         || '';
+  f.querySelector('[name="soundtrack"]').value = adventure.soundtrack || '';
 
   populateCampaignDropdown();
   adventureCampaignSelect.value = adventure.campaignId || '';
@@ -382,9 +396,11 @@ function saveAdventure() {
     id,
     title:      title || '',
     campaignId: adventureCampaignSelect.value || undefined,
+    soundtrack: f.querySelector('[name="soundtrack"]').value.trim() || '',
     scenes:     [...editingAdventureScenes],
   };
   if (!adventure.campaignId) delete adventure.campaignId;
+  if (!adventure.soundtrack) delete adventure.soundtrack;
 
   if (editingAdventureIdx !== null) {
     editorAdventures[editingAdventureIdx] = adventure;

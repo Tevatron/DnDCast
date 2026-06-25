@@ -467,7 +467,8 @@ function goToScene(index) {
   if (isDM) renderDmOverlay(scene);
   updateSceneListHighlight();
 
-  audio.play(scene);
+  const adventure = allAdventures.find(a => a.id === activeAdventureId);
+  audio.play(sceneAudio(scene, adventure));
   broadcastState();
 }
 
@@ -831,6 +832,19 @@ function loadState() {
 
   const fit = localStorage.getItem('dndcast_objectFit');
   if (fit === 'cover' || fit === 'contain') CONFIG.objectFit = fit;
+}
+
+// Effective audio for a scene, honoring the adventure soundtrack fallback.
+// Mirrored server-side in server.js (sceneAudio) for the sanitized player view.
+//   • scene.silent → no music, even if the adventure has a soundtrack
+//   • scene.audio  → that track
+//   • else soundtrack → the adventure's default soundtrack (looped)
+//   • else → silent
+function sceneAudio(scene, adventure) {
+  if (scene.silent) return { audio: null };
+  if (scene.audio)  return { audio: scene.audio, loopAudio: scene.loopAudio !== false };
+  if (adventure && adventure.soundtrack) return { audio: adventure.soundtrack, loopAudio: true };
+  return { audio: null };
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────

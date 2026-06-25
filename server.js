@@ -241,6 +241,15 @@ export async function createApp(config, opts = {}) {
     return contentCache;
   }
 
+  // Mirror of the client's sceneAudio (app.js): scene audio with adventure
+  // soundtrack fallback. scene.silent overrides the soundtrack with silence.
+  function sceneAudio(scene, adventure) {
+    if (scene.silent) return { audio: null };
+    if (scene.audio)  return { audio: scene.audio, loopAudio: scene.loopAudio !== false };
+    if (adventure && adventure.soundtrack) return { audio: adventure.soundtrack, loopAudio: true };
+    return { audio: null };
+  }
+
   // Mirror of the client's scene-list resolution (resolveAdventureScenesForActive).
   function resolveScenes(state, scenes, adventures) {
     const id = state.activeAdventureId;
@@ -258,12 +267,14 @@ export async function createApp(config, opts = {}) {
     const list  = resolveScenes(state, scenes, adventures);
     const scene = state.sceneIndex >= 0 ? list[state.sceneIndex] : null;
     if (!scene) return { type: 'view', waiting: true };
+    const adv   = adventures.find(a => a.id === state.activeAdventureId);
+    const track = sceneAudio(scene, adv);
     // Volume/mute are intentionally omitted — players control their own loudness.
     return {
       type:      'view',
       image:     scene.image ?? null,
-      audio:     scene.audio ?? null,
-      loopAudio: scene.loopAudio ?? true,
+      audio:     track.audio,
+      loopAudio: track.loopAudio ?? true,
       fit:       scene.fit ?? null,
       paused:    !!state.paused,
       blackout:  !!state.blackout,

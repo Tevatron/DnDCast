@@ -225,6 +225,35 @@ describe('Player-role sanitized view', () => {
     dm.close();
   });
 
+  it('falls back to the adventure soundtrack, but honors a scene custom track and silent override', async () => {
+    const dmAgent = request.agent(ctx.app);
+    await login(dmAgent);
+    await dmAgent.post('/api/save').send({
+      scenes: [
+        { id: 'a', image: 'img/a.jpg' },                                   // no audio → soundtrack
+        { id: 'b', image: 'img/b.jpg', audio: 'assets/audio/b.mp3' },      // custom track wins
+        { id: 'c', image: 'img/c.jpg', silent: true },                     // silent overrides soundtrack
+      ],
+      adventures: [{ id: 'adv', title: 'A', scenes: ['a', 'b', 'c'], soundtrack: 'assets/audio/theme.mp3' }],
+    });
+
+    const player = await connect(ctx.port, await cookie(TEST_PLAYER_PASSWORD), 'st-room');
+    const dm     = await connect(ctx.port, await cookie(),                    'st-room');
+
+    async function viewFor(sceneIndex) {
+      const received = waitForMessage(player);
+      dm.send(JSON.stringify({ activeAdventureId: 'adv', sceneIndex, paused: false }));
+      return received;
+    }
+
+    expect(await viewFor(0)).toMatchObject({ audio: 'assets/audio/theme.mp3', loopAudio: true }); // fallback
+    expect(await viewFor(1)).toMatchObject({ audio: 'assets/audio/b.mp3' });                       // custom
+    expect(await viewFor(2)).toMatchObject({ audio: null });                                       // silent
+
+    player.close();
+    dm.close();
+  });
+
   it('tells players to wait when the DM has no scene selected', async () => {
     const player = await connect(ctx.port, await cookie(TEST_PLAYER_PASSWORD), 'wait-room');
     const dm     = await connect(ctx.port, await cookie(),                    'wait-room');
