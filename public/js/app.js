@@ -201,14 +201,26 @@ function applyRoleUI() {
   } else if (isRestricted) {
     document.title = 'DnDCast — Player';
     startSubtitle.textContent = 'Player';
-    // Restricted player just watches: no transport, no nav, no overflow. Hide the
-    // whole controls bar and the tap zones; only art + audio remain. Fullscreen
-    // is still available via the 'f' key.
-    controls.hidden       = true;
-    presentDot.hidden     = true;
-    tapPrev.hidden        = true;
-    tapNext.hidden        = true;
-    playSoloBtn.hidden    = true;       // no dataset to play solo from
+    // Player follows the DM but keeps LOCAL controls: volume/mute, fullscreen, and
+    // logout. Hide only what navigates the shared session or is DM-only.
+    homeBtn.hidden            = true;
+    prevBtn.hidden            = true;
+    playPauseBtn.hidden       = true;
+    nextBtn.hidden            = true;
+    scenesBtn.hidden          = true;
+    notesToggleBtn.hidden     = true;
+    notesContent.hidden       = true;
+    sceneCounter.hidden       = true;
+    presentDot.hidden         = true;
+    tapPrev.hidden            = true;
+    tapNext.hidden            = true;
+    playSoloBtn.hidden        = true;       // no dataset to play solo from
+    // Overflow stays for Log out; hide the DM/session items inside it.
+    blackoutBtn.hidden        = true;
+    titleBtn.hidden           = true;
+    switchAdventureBtn.hidden = true;
+    presentBtn.hidden         = true;
+    // Kept visible: volume slider, fullscreen, and overflow ▸ Log out.
   } else {
     startSubtitle.textContent = 'Cast';
     // Cast tab: DM drives these via sync; hide them to avoid confusion/accidents.
@@ -744,11 +756,8 @@ function applyPlayerView(v) {
   }
   waitingOverlay.hidden = true;
 
-  // Volume/mute before any (re)start so the fade-in targets the right level.
-  if (v.volume !== audio.volume || v.muted !== audio.muted) {
-    volume = v.volume;
-    audio.syncVolume(v.volume, v.muted);
-  }
+  // Volume/mute are LOCAL for players — the DM doesn't control a player's device
+  // audio. They set it themselves (volume slider / 'm'); we ignore v.volume/v.muted.
 
   // Diff on src so a volume/pause nudge never reloads art or restarts the track.
   if (v.image !== playerImageSrc) {
@@ -798,9 +807,10 @@ function showControls() {
 function onKeydown(e) {
   if (!sessionStarted) return;
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-  // Restricted player has no controls — only fullscreen.
+  // Restricted player gets only local controls: fullscreen + mute.
   if (isRestricted) {
     if (e.key === 'f' || e.key === 'F') toggleFullscreen();
+    else if (e.key === 'm' || e.key === 'M') toggleMute();
     return;
   }
   switch (e.key) {

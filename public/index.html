@@ -23,15 +23,15 @@
         <span class="home-card-desc">Displays scene art &amp; plays audio. This is the tab you cast to the TV.</span>
       </a>
 
-      <!-- DM: private control surface, never cast -->
-      <a class="home-card" href="player.html?role=dm">
+      <!-- DM: private control surface, never cast (DM-role only) -->
+      <a class="home-card" id="card-dm" href="player.html?role=dm">
         <span class="home-card-icon">&#x1F3B2;</span>
         <span class="home-card-title">DM Control</span>
         <span class="home-card-desc">Drives the Cast tab and shows your notes &amp; script. Keep this tab private.</span>
       </a>
 
-      <!-- Editor: author content -->
-      <a class="home-card" href="editor.html">
+      <!-- Editor: author content (DM-role only) -->
+      <a class="home-card" id="card-editor" href="editor.html">
         <span class="home-card-icon">&#x270F;</span>
         <span class="home-card-title">Editor</span>
         <span class="home-card-desc">Create &amp; edit campaigns, sessions, and scenes.</span>
@@ -44,6 +44,23 @@
       cast the Cast tab (Chrome &rarr; Cast &rarr; &ldquo;Cast tab&rdquo;).
     </footer>
   </main>
+
+  <button id="logout-btn" class="text-btn" style="position:fixed;top:1rem;right:1rem;">Log out</button>
+
+  <script>
+    (async () => {
+      // Hide DM-only entry points for player-role sessions. The cards are also
+      // gated server-side (editor.html / ?role=dm), so this is UX, not security.
+      let role = 'player';
+      try { role = (await (await fetch('/api/me')).json()).role; } catch (_) {}
+      if (role !== 'dm') {
+        document.getElementById('card-dm')?.remove();
+        document.getElementById('card-editor')?.remove();
+      }
+      document.getElementById('logout-btn').addEventListener('click', () =>
+        fetch('/api/logout', { method: 'POST' }).then(() => { location.href = '/login'; }));
+    })();
+  </script>
 
 </body>
 </html>
