@@ -254,6 +254,35 @@ describe('Player-role sanitized view', () => {
     dm.close();
   });
 
+  it('excludes scenes private to an owner from the "all scenes" pool', async () => {
+    const dmAgent = request.agent(ctx.app);
+    await login(dmAgent);
+    await dmAgent.post('/api/save').send({
+      scenes: [
+        { id: 'pub1', image: 'img/1.jpg' },
+        { id: 'secret', image: 'img/secret.jpg', privateTo: 'some-campaign' },
+        { id: 'pub2', image: 'img/2.jpg' },
+      ],
+      adventures: [],
+    });
+
+    const player = await connect(ctx.port, await cookie(TEST_PLAYER_PASSWORD), 'priv-room');
+    const dm     = await connect(ctx.port, await cookie(),                    'priv-room');
+
+    async function viewFor(sceneIndex) {
+      const received = waitForMessage(player);
+      dm.send(JSON.stringify({ activeAdventureId: 'all', sceneIndex, paused: false }));
+      return received;
+    }
+
+    // The private scene is skipped, so the pool is [pub1, pub2] — index 1 is pub2.
+    expect(await viewFor(0)).toMatchObject({ image: 'img/1.jpg' });
+    expect(await viewFor(1)).toMatchObject({ image: 'img/2.jpg' });
+
+    player.close();
+    dm.close();
+  });
+
   it('tells players to wait when the DM has no scene selected', async () => {
     const player = await connect(ctx.port, await cookie(TEST_PLAYER_PASSWORD), 'wait-room');
     const dm     = await connect(ctx.port, await cookie(),                    'wait-room');

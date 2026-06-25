@@ -252,11 +252,12 @@ export async function createApp(config, opts = {}) {
 
   // Mirror of the client's scene-list resolution (resolveAdventureScenesForActive).
   function resolveScenes(state, scenes, adventures) {
-    const id = state.activeAdventureId;
-    if (id === 'all' || !id) return scenes;
+    const id  = state.activeAdventureId;
+    const pub = scenes.filter(s => !s.privateTo);   // exclude scenes private to an owner
+    if (id === 'all' || !id) return pub;
     const adv = adventures.find(a => a.id === id);
-    let list = adv ? (adv.scenes || []).map(sid => scenes.find(s => s.id === sid)).filter(Boolean) : scenes;
-    if (!list.length) list = scenes;
+    let list = adv ? (adv.scenes || []).map(sid => scenes.find(s => s.id === sid)).filter(Boolean) : pub;
+    if (!list.length) list = pub;
     return list;
   }
 

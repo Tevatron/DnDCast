@@ -35,6 +35,7 @@ const sceneEditPanel   = $('scene-edit-panel');
 const sceneEditHeading = $('scene-edit-heading');
 const sceneForm        = $('scene-form');
 const deleteSceneBtn   = $('delete-scene-btn');
+const scenePrivateSelect = $('scene-private-select');
 
 // Adventures
 const addAdventureBtn        = $('add-adventure-btn');
@@ -89,6 +90,10 @@ function init() {
   adventureForm.addEventListener('submit', e => { e.preventDefault(); saveAdventure(); });
   deleteAdventureBtn.addEventListener('click', deleteAdventure);
   scenePickerSearch.addEventListener('input', filterScenePicker);
+  // Changing the campaign changes which campaign-private scenes are offered.
+  adventureCampaignSelect.addEventListener('change', () => {
+    if (!adventureEditPanel.hidden) renderScenePicker();
+  });
 
   // Auto-slugify adventure title → id
   const adventureTitle = adventureForm.querySelector('[name="title"]');
@@ -217,6 +222,29 @@ function renderAll() {
   renderAdventures();
   renderCampaigns();
   populateCampaignDropdown();
+  populateSceneOwnerDropdown();
+}
+
+// Owner choices for a scene's "Private to" field: every campaign and adventure.
+function populateSceneOwnerDropdown() {
+  if (!scenePrivateSelect) return;
+  const current = scenePrivateSelect.value;
+  scenePrivateSelect.innerHTML = '<option value="">Public — available everywhere</option>';
+  const addGroup = (label, items) => {
+    if (!items.length) return;
+    const og = document.createElement('optgroup');
+    og.label = label;
+    items.forEach(it => {
+      const o = document.createElement('option');
+      o.value = it.id;
+      o.textContent = it.title || it.id;
+      og.appendChild(o);
+    });
+    scenePrivateSelect.appendChild(og);
+  };
+  addGroup('Campaigns', editorCampaigns);
+  addGroup('Adventures', editorAdventures);
+  scenePrivateSelect.value = current;
 }
 
 // === Scenes ===========================================================
@@ -234,6 +262,7 @@ function renderScenes() {
       `<div class="list-item-meta">${escHtml(scene.id)}` +
       (scene.image ? '' : ' · <em>no image</em>') +
       (scene.audio ? '' : ' · <em>no audio</em>') +
+      (scene.privateTo ? ' · <em>private</em>' : '') +
       `</div></div>`;
     li.addEventListener('click', () => openSceneEdit(i));
     scenesList.appendChild(li);
@@ -261,6 +290,8 @@ function openSceneEdit(idx) {
   f.querySelector('[name="loopAudio"]').checked = scene.loopAudio !== false;
   f.querySelector('[name="silent"]').checked    = !!scene.silent;
   syncSilentState();
+  populateSceneOwnerDropdown();
+  f.querySelector('[name="privateTo"]').value   = scene.privateTo || '';
 
   sceneEditPanel.hidden = false;
 }
@@ -294,6 +325,7 @@ function saveScene() {
     fit:       f.querySelector('[name="fit"]').value,
     loopAudio: f.querySelector('[name="loopAudio"]').checked,
     silent:    f.querySelector('[name="silent"]').checked,
+    privateTo: f.querySelector('[name="privateTo"]').value || '',
   };
 
   // Remove fields that match defaults to keep JSON clean
@@ -302,6 +334,7 @@ function saveScene() {
   if (!scene.notes)            delete scene.notes;
   if (!scene.dmScript)         delete scene.dmScript;
   if (!scene.silent)           delete scene.silent;
+  if (!scene.privateTo)        delete scene.privateTo;
   if (scene.fit === 'contain') delete scene.fit;  // contain is the default; omit it
 
   if (editingSceneIdx !== null) {
@@ -487,6 +520,8 @@ function renderScenePicker() {
     return;
   }
   editorScenes.forEach(scene => {
+    if (!sceneAllowedInAdventure(scene)) return;   // hide other owners' private scenes
+
     const row = document.createElement('label');
     row.className = 'picker-row';
 
@@ -505,11 +540,22 @@ function renderScenePicker() {
     });
 
     const label = document.createElement('span');
-    label.textContent = scene.title || scene.id;
+    label.textContent = (scene.title || scene.id) + (scene.privateTo ? ' · private' : '');
 
     row.append(cb, label);
     scenePicker.appendChild(row);
   });
+}
+
+// A scene is offered for the adventure being edited when it's public, owned by
+// this adventure (or its campaign), or already in the adventure (so it can be
+// removed). Uses the live form values so it tracks edits before saving.
+function sceneAllowedInAdventure(scene) {
+  if (!scene.privateTo) return true;
+  if (editingAdventureScenes.includes(scene.id)) return true;
+  const advId  = adventureForm.querySelector('[name="id"]').value.trim();
+  const campId = adventureCampaignSelect.value;
+  return scene.privateTo === advId || (!!campId && scene.privateTo === campId);
 }
 
 // Sync checked state without rebuilding — keeps scroll position intact.

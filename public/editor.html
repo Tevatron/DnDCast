@@ -81,6 +81,12 @@
             <textarea name="dmScript" rows="4" placeholder="Read-aloud text or scene description..."></textarea>
           </label>
           <label class="field-label">
+            Private to <span class="field-hint">(hidden from "all scenes" &amp; other owners' pickers)</span>
+            <select name="privateTo" id="scene-private-select">
+              <option value="">Public — available everywhere</option>
+            </select>
+          </label>
+          <label class="field-label">
             Image fit
             <select name="fit">
               <option value="contain">Contain — show full image, letterboxed (default)</option>

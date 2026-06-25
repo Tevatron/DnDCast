@@ -408,7 +408,7 @@ function showAdventurePicker(campaignId) {
   allLi.className = 'picker-card picker-all';
   allLi.innerHTML =
     `<span class="picker-title">Play All Scenes</span>` +
-    `<span class="picker-meta">${allScenes.length} scenes</span>`;
+    `<span class="picker-meta">${publicScenes().length} scenes</span>`;
   allLi.addEventListener('click', startAllScenes);
   adventurePickerList.appendChild(allLi);
 
@@ -438,7 +438,7 @@ function pickAdventure(adventure) {
 
   if (!currentScenes.length) {
     showError('Adventure has no valid scenes — loading all scenes instead.');
-    currentScenes = [...allScenes];
+    currentScenes = publicScenes();
   }
 
   adventureOverlay.hidden = true;
@@ -446,10 +446,14 @@ function pickAdventure(adventure) {
   enterPlayer();
 }
 
+// Scenes in the global "all scenes" pool — excludes scenes marked private to a
+// specific adventure/campaign so their secrets don't leak into the browse-all view.
+function publicScenes() { return allScenes.filter(s => !s.privateTo); }
+
 function startAllScenes() {
   activeAdventureId = 'all';
   activeCampaignId  = null;
-  currentScenes     = [...allScenes];
+  currentScenes     = publicScenes();
   localStorage.setItem('dndcast_adventure', 'all');
   adventureOverlay.hidden = true;
   campaignOverlay.hidden  = true;
@@ -800,12 +804,12 @@ function applyPlayerView(v) {
 }
 
 function resolveAdventureScenesForActive() {
-  if (activeAdventureId === 'all' || !activeAdventureId) { currentScenes = [...allScenes]; return; }
+  if (activeAdventureId === 'all' || !activeAdventureId) { currentScenes = publicScenes(); return; }
   const adventure = allAdventures.find(a => a.id === activeAdventureId);
   currentScenes = adventure
     ? (adventure.scenes || []).map(id => allScenes.find(s => s.id === id)).filter(Boolean)
-    : [...allScenes];
-  if (!currentScenes.length) currentScenes = [...allScenes];
+    : publicScenes();
+  if (!currentScenes.length) currentScenes = publicScenes();
 }
 
 // ── Auto-hide controls + cursor ──────────────────────────────────────
