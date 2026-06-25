@@ -127,9 +127,18 @@ export async function createApp(config, opts = {}) {
   app.use('/assets', express.static(assetsDir));
   app.use(express.static(PUBLIC_DIR));
 
-  // ── WebSocket relay ─────────────────────────────────────────────────
-  let lastState = null;
-  const clients = new Set();
+  // ── WebSocket relay (per-room) ──────────────────────────────────────
+  // Each room is an independent sync group with its own cached lastState and
+  // client set; a DM's snapshot only reaches clients in the same room. With no
+  // ?room= the client joins the 'default' room, so today everyone shares one
+  // group and behaviour is unchanged — this is the seam for sharing distinct
+  // adventures by id later.
+  const rooms = new Map();
+  function getRoom(id) {
+    let room = rooms.get(id);
+    if (!room) { room = { lastState: null, clients: new Set() }; rooms.set(id, room); }
+    return room;
+  }
 
   server.on('upgrade', (req, socket, head) => {
     // Authenticate via the session cookie the browser already sends. The session
@@ -141,35 +150,40 @@ export async function createApp(config, opts = {}) {
         socket.destroy();
         return;
       }
-      wss.handleUpgrade(req, socket, head, ws => wss.emit('connection', ws));
+      const roomId = new URL(req.url, 'http://localhost').searchParams.get('room') || 'default';
+      wss.handleUpgrade(req, socket, head, ws => wss.emit('connection', ws, roomId));
     });
   });
 
-  wss.on('connection', ws => {
-    clients.add(ws);
+  wss.on('connection', (ws, roomId) => {
+    const room = getRoom(roomId);
+    room.clients.add(ws);
 
     ws.on('message', raw => {
       let msg;
       try { msg = JSON.parse(raw); } catch { return; }
 
       if (msg.type === 'hello') {
-        if (lastState) ws.send(JSON.stringify(lastState));
-        relay(ws, raw);
+        if (room.lastState) ws.send(JSON.stringify(room.lastState));
+        relay(room, ws, raw);
         return;
       }
 
       if (msg.type === 'ping') return;   // keepalive — don't relay or cache
 
-      lastState = msg.stop ? null : msg;
-      relay(ws, raw);
+      room.lastState = msg.stop ? null : msg;
+      relay(room, ws, raw);
     });
 
-    ws.on('close', () => clients.delete(ws));
+    ws.on('close', () => {
+      room.clients.delete(ws);
+      if (room.clients.size === 0) rooms.delete(roomId);   // GC empty rooms
+    });
   });
 
-  function relay(sender, raw) {
+  function relay(room, sender, raw) {
     const str = raw.toString();
-    for (const client of clients) {
+    for (const client of room.clients) {
       if (client !== sender && client.readyState === WebSocket.OPEN) {
         client.send(str);
       }
@@ -177,9 +191,10 @@ export async function createApp(config, opts = {}) {
   }
 
   function resetWsState() {
-    lastState = null;
-    for (const client of clients) client.close();
-    clients.clear();
+    for (const room of rooms.values()) {
+      for (const client of room.clients) client.close();
+    }
+    rooms.clear();
   }
 
   return { app, server, wss, resetWsState };

@@ -3,9 +3,10 @@
 // Same external interface as before: createSync(role, { onState, onHello, onOpen })
 // returns { post(snapshot), requestState() }.
 //
-// DM posts state snapshots; server relays to all cast clients.
-// Cast clients send { type:'hello' }; server replies with cached state
-// and relays the hello to DM for a fresh snapshot.
+// DM posts state snapshots; server relays them to cast clients IN THE SAME ROOM.
+// The room is taken from the page's ?room= param; with none, all tabs share the
+// 'default' room (current behaviour). Cast clients send { type:'hello' }; server
+// replies with that room's cached state and relays the hello to the DM.
 // The WebSocket upgrade is authenticated by the session cookie the browser
 // sends automatically — no token needed, so reconnects survive server restarts.
 // Auto-reconnects on disconnect with 2s backoff.
@@ -26,8 +27,10 @@ export function createSync(role, handlers = {}) {
   };
 
   function connect() {
+    const room     = new URLSearchParams(location.search).get('room');
+    const qs       = room ? `?room=${encodeURIComponent(room)}` : '';
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    ws = new WebSocket(`${protocol}//${location.host}/ws`);
+    ws = new WebSocket(`${protocol}//${location.host}/ws${qs}`);
 
     ws.addEventListener('open', () => {
       if (role === 'player') api.requestState();

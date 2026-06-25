@@ -7,14 +7,16 @@ const ctx = makeTestContext();
 beforeAll(() => ctx.setup());
 afterAll(() => ctx.teardown());
 
-function wsUrl(port) {
-  return `ws://localhost:${port}/ws`;
+function wsUrl(port, room) {
+  return room ? `ws://localhost:${port}/ws?room=${encodeURIComponent(room)}`
+              : `ws://localhost:${port}/ws`;
 }
 
 // Connect a WebSocket (authenticated via session cookie) and wait for open or fail.
-function connect(port, cookie) {
+// Pass a room to join a specific sync group; omit it to join the 'default' room.
+function connect(port, cookie, room) {
   return new Promise((resolve, reject) => {
-    const ws = new WebSocket(wsUrl(port), { headers: cookie ? { Cookie: cookie } : {} });
+    const ws = new WebSocket(wsUrl(port, room), { headers: cookie ? { Cookie: cookie } : {} });
     ws.once('open',  () => resolve(ws));
     ws.once('error', reject);
     // If server closes immediately (401), treat as rejection
@@ -140,5 +142,47 @@ describe('WebSocket relay', () => {
     expect(gotMessage).toBe(false);
     dmWs.close();
     castWs.close();
+  });
+});
+
+describe('WebSocket rooms', () => {
+  it('does not relay between different rooms', async () => {
+    const [cookieA, cookieB, cookieC] = await Promise.all([getCookie(), getCookie(), getCookie()]);
+    const dmA   = await connect(ctx.port, cookieA, 'room-1');
+    const castA = await connect(ctx.port, cookieB, 'room-1');
+    const castB = await connect(ctx.port, cookieC, 'room-2');
+
+    // A listener in the other room must never receive room-1 traffic.
+    let leaked = false;
+    castB.on('message', () => { leaked = true; });
+
+    const received = waitForMessage(castA);
+    dmA.send(JSON.stringify({ sceneIndex: 5 }));
+    expect(await received).toEqual({ sceneIndex: 5 });
+
+    await new Promise(r => setTimeout(r, 100));
+    expect(leaked).toBe(false);
+
+    dmA.close();
+    castA.close();
+    castB.close();
+  });
+
+  it('caches lastState independently per room', async () => {
+    const [cookieA, cookieB] = await Promise.all([getCookie(), getCookie()]);
+    const dm = await connect(ctx.port, cookieA, 'room-x');
+    dm.send(JSON.stringify({ sceneIndex: 7 }));
+    await new Promise(r => setTimeout(r, 50)); // let server store lastState for room-x
+
+    // A late joiner in a DIFFERENT room says hello — gets no cached state.
+    const otherRoom = await connect(ctx.port, cookieB, 'room-y');
+    let got = false;
+    otherRoom.on('message', () => { got = true; });
+    otherRoom.send(JSON.stringify({ type: 'hello' }));
+    await new Promise(r => setTimeout(r, 100));
+
+    expect(got).toBe(false);
+    dm.close();
+    otherRoom.close();
   });
 });
