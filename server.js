@@ -44,7 +44,6 @@ export async function createApp(config, opts = {}) {
   const app    = express();
   const server = createServer(app);
   const wss    = new WebSocketServer({ noServer: true });
-  const wsTokens = new Map();
 
   const SessionFileStore = FileStore(session);
   // Tests pass inMemoryStore:true to avoid file-system session state between requests.
@@ -53,14 +52,17 @@ export async function createApp(config, opts = {}) {
     ? undefined
     : new SessionFileStore({ path: sessionsDir, ttl: SESSION_TTL, retries: 1, logFn: () => {} });
 
-  app.use(express.json());
-  app.use(session({
+  // Held in a variable so the same session can be parsed on the WebSocket upgrade.
+  const sessionMiddleware = session({
     ...(store ? { store } : {}),
     secret:            config.sessionSecret,
     resave:            false,
     saveUninitialized: false,
     cookie:            { sameSite: 'strict', httpOnly: true, maxAge: SESSION_TTL * 1000 },
-  }));
+  });
+
+  app.use(express.json());
+  app.use(sessionMiddleware);
 
   // ── Auth middleware ─────────────────────────────────────────────────
   function requireAuth(req, res, next) {
@@ -83,22 +85,11 @@ export async function createApp(config, opts = {}) {
       return res.status(401).json({ error: 'Wrong password' });
     }
     req.session.authed = true;
-    const wsToken = crypto.randomBytes(16).toString('hex');
-    wsTokens.set(wsToken, true);
-    res.json({ ok: true, wsToken });
+    res.json({ ok: true });
   });
 
   app.post('/api/logout', (req, res) => {
     req.session.destroy(() => res.redirect('/login'));
-  });
-
-  // Reissue a WS token for an already-authenticated session.
-  // Called by the client when a WebSocket connection is rejected (stale token after server restart).
-  app.post('/api/ws-token', (req, res) => {
-    if (!req.session.authed) return res.status(401).json({ error: 'Unauthorized' });
-    const wsToken = crypto.randomBytes(16).toString('hex');
-    wsTokens.set(wsToken, true);
-    res.json({ wsToken });
   });
 
   // ── Protected routes ────────────────────────────────────────────────
@@ -141,14 +132,17 @@ export async function createApp(config, opts = {}) {
   const clients = new Set();
 
   server.on('upgrade', (req, socket, head) => {
-    const url   = new URL(req.url, 'http://localhost');
-    const token = url.searchParams.get('t');
-    if (!token || !wsTokens.has(token)) {
-      socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
-      socket.destroy();
-      return;
-    }
-    wss.handleUpgrade(req, socket, head, ws => wss.emit('connection', ws));
+    // Authenticate via the session cookie the browser already sends. The session
+    // is file-persisted, so it survives server restarts — unlike an in-memory
+    // token, which left reconnecting clients permanently rejected after a restart.
+    sessionMiddleware(req, {}, () => {
+      if (!req.session?.authed) {
+        socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+        socket.destroy();
+        return;
+      }
+      wss.handleUpgrade(req, socket, head, ws => wss.emit('connection', ws));
+    });
   });
 
   wss.on('connection', ws => {
@@ -188,7 +182,7 @@ export async function createApp(config, opts = {}) {
     clients.clear();
   }
 
-  return { app, server, wss, wsTokens, resetWsState };
+  return { app, server, wss, resetWsState };
 }
 
 // ── JSON helpers ──────────────────────────────────────────────────────

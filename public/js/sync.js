@@ -6,6 +6,8 @@
 // DM posts state snapshots; server relays to all cast clients.
 // Cast clients send { type:'hello' }; server replies with cached state
 // and relays the hello to DM for a fresh snapshot.
+// The WebSocket upgrade is authenticated by the session cookie the browser
+// sends automatically — no token needed, so reconnects survive server restarts.
 // Auto-reconnects on disconnect with 2s backoff.
 // Sends a keepalive ping every 30s to prevent Cloudflare's 100s idle timeout.
 
@@ -24,13 +26,10 @@ export function createSync(role, handlers = {}) {
   };
 
   function connect() {
-    const token    = localStorage.getItem('dndcast_wsToken') ?? '';
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-    ws = new WebSocket(`${protocol}//${location.host}/ws?t=${encodeURIComponent(token)}`);
+    ws = new WebSocket(`${protocol}//${location.host}/ws`);
 
-    let didOpen = false;
     ws.addEventListener('open', () => {
-      didOpen = true;
       if (role === 'player') api.requestState();
       if (onOpen) onOpen();
       pingInterval = setInterval(() => {
@@ -49,15 +48,6 @@ export function createSync(role, handlers = {}) {
       clearInterval(pingInterval);
       pingInterval = null;
       ws = null;
-      if (!didOpen) {
-        // Connection was rejected before the handshake completed — token is likely
-        // stale after a server restart. Try to reissue via the existing session.
-        fetch('/api/ws-token', { method: 'POST' })
-          .then(r => r.ok ? r.json() : Promise.reject())
-          .then(({ wsToken }) => { localStorage.setItem('dndcast_wsToken', wsToken); connect(); })
-          .catch(() => { location.href = '/login'; });
-        return;
-      }
       setTimeout(connect, 2000);
     });
     ws.addEventListener('error', () => ws?.close());

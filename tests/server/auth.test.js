@@ -52,21 +52,14 @@ describe('POST /api/login', () => {
     expect(res.status).toBe(401);
   });
 
-  it('returns ok:true and a wsToken for correct password', async () => {
+  it('returns ok:true and sets a session cookie for correct password', async () => {
     const res = await request(ctx.app)
       .post('/api/login')
       .send({ password: TEST_PASSWORD });
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
-    expect(typeof res.body.wsToken).toBe('string');
-    expect(res.body.wsToken.length).toBe(32); // 16 bytes hex = 32 chars
-  });
-
-  it('registers the wsToken in the server token map', async () => {
-    const res = await request(ctx.app)
-      .post('/api/login')
-      .send({ password: TEST_PASSWORD });
-    expect(ctx.wsTokens.has(res.body.wsToken)).toBe(true);
+    expect(res.headers['set-cookie']).toBeDefined();
+    expect(res.headers['set-cookie'][0]).toMatch(/connect\.sid=/);
   });
 });
 

@@ -32,9 +32,7 @@
         body:    JSON.stringify({ password }),
       });
       if (res.ok) {
-        const { wsToken } = await res.json();
-        localStorage.setItem('dndcast_wsToken', wsToken);
-        // All tabs share this token — they'll reconnect with it automatically.
+        // Auth is carried by the session cookie set on this response.
         location.href = '/';
       } else {
         document.getElementById('login-error').hidden = false;

@@ -19,11 +19,11 @@ export const TEST_CONFIG = {
 // Creates an isolated app + temp data directory.
 // Call setup/teardown in beforeAll/afterAll.
 export function makeTestContext() {
-  let dataDir, app, server, wsTokens;
+  let dataDir, app, server;
 
   async function setup() {
     dataDir = await mkdtemp(join(tmpdir(), 'dndcast-test-'));
-    ({ app, server, wsTokens } = await createApp(TEST_CONFIG, { dataDir, inMemoryStore: true }));
+    ({ app, server } = await createApp(TEST_CONFIG, { dataDir, inMemoryStore: true }));
     await new Promise(resolve => server.listen(0, resolve));
   }
 
@@ -37,16 +37,17 @@ export function makeTestContext() {
     teardown,
     get app()      { return app; },
     get server()   { return server; },
-    get wsTokens() { return wsTokens; },
     get port()     { return server.address().port; },
     get dataDir()  { return dataDir; },
   };
 }
 
-// Log in via the API and return the agent (cookie jar) + wsToken.
+// Log in via the API. Returns a Cookie-header string for the session, so a raw
+// `ws` client can authenticate its upgrade the same way a browser would.
 export async function login(agent) {
   const res = await agent
     .post('/api/login')
     .send({ password: TEST_PASSWORD });
-  return res.body.wsToken;
+  const setCookie = res.headers['set-cookie'] ?? [];
+  return setCookie.map(c => c.split(';')[0]).join('; ');
 }
