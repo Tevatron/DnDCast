@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import { WebSocket } from 'ws';
-import { makeTestContext, login } from '../helpers/createTestApp.js';
+import { makeTestContext, login, TEST_PLAYER_PASSWORD } from '../helpers/createTestApp.js';
 
 const ctx = makeTestContext();
 beforeAll(() => ctx.setup());
@@ -184,5 +184,56 @@ describe('WebSocket rooms', () => {
     expect(got).toBe(false);
     dm.close();
     otherRoom.close();
+  });
+});
+
+describe('Player-role sanitized view', () => {
+  async function cookie(password) {
+    return login(request.agent(ctx.app), password);
+  }
+
+  it('sends players only visuals/audio + playback — never titles, notes, or read-aloud', async () => {
+    // Seed spoilery content as DM.
+    const dmAgent = request.agent(ctx.app);
+    await login(dmAgent);
+    await dmAgent.post('/api/save').send({
+      scenes: [{ id: 'boss', title: 'The Lich King', image: 'assets/images/lich.jpg',
+                 audio: 'assets/audio/doom.mp3', notes: 'SECRET', dmScript: 'Read this aloud', loopAudio: true }],
+      adventures: [{ id: 'adv', title: 'Campaign', scenes: ['boss'] }],
+    });
+
+    const player = await connect(ctx.port, await cookie(TEST_PLAYER_PASSWORD), 'sanitize-room');
+    const dm     = await connect(ctx.port, await cookie(),                    'sanitize-room');
+
+    const received = waitForMessage(player);
+    dm.send(JSON.stringify({
+      activeAdventureId: 'adv', sceneIndex: 0, paused: false,
+      volume: 1, muted: false, blackout: false, titleVisible: true,
+    }));
+    const view = await received;
+
+    expect(view).toEqual({
+      type: 'view', image: 'assets/images/lich.jpg', audio: 'assets/audio/doom.mp3',
+      loopAudio: true, fit: null, paused: false, volume: 1, muted: false, blackout: false,
+    });
+    // Belt-and-suspenders: no spoiler fields leaked.
+    for (const k of ['title', 'notes', 'dmScript', 'id', 'sceneIndex', 'activeAdventureId', 'titleVisible']) {
+      expect(view[k]).toBeUndefined();
+    }
+
+    player.close();
+    dm.close();
+  });
+
+  it('tells players to wait when the DM has no scene selected', async () => {
+    const player = await connect(ctx.port, await cookie(TEST_PLAYER_PASSWORD), 'wait-room');
+    const dm     = await connect(ctx.port, await cookie(),                    'wait-room');
+
+    const received = waitForMessage(player);
+    dm.send(JSON.stringify({ activeAdventureId: 'adv', sceneIndex: -1, paused: true, volume: 1 }));
+    expect(await received).toEqual({ type: 'view', waiting: true });
+
+    player.close();
+    dm.close();
   });
 });

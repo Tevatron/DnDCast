@@ -112,9 +112,10 @@ describe('Roles & access control', () => {
     expect((await player.get('/api/me')).body.role).toBe('player');
   });
 
-  it('forbids player-role from /api/save and /api/upload', async () => {
+  it('forbids player-role from /api/data, /api/save, and /api/upload', async () => {
     const player = request.agent(ctx.app);
     await login(player, TEST_PLAYER_PASSWORD);
+    expect((await player.get('/api/data')).status).toBe(403);
     expect((await player.post('/api/save').send({ scenes: [] })).status).toBe(403);
     expect((await player.post('/api/upload')).status).toBe(403);
   });

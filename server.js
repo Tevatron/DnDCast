@@ -116,7 +116,10 @@ export async function createApp(config, opts = {}) {
   // Lets the client discover its own role so it can't self-promote to DM via the URL.
   app.get('/api/me', (req, res) => res.json({ role: roleOf(req) }));
 
-  app.get('/api/data', async (req, res) => {
+  // Full dataset is DM-only. Player-role users never receive scene metadata
+  // (titles, notes, read-aloud, other scenes) — only the live sanitized scene
+  // pushed over the WebSocket. See playerView() below.
+  app.get('/api/data', requireDM, async (req, res) => {
     const [scenes, adventures, campaigns] = await Promise.all([
       readJson(dataDir, 'scenes.json'),
       readJson(dataDir, 'adventures.json'),
@@ -132,6 +135,7 @@ export async function createApp(config, opts = {}) {
       adventures != null && writeJson(dataDir, 'adventures.json', adventures),
       campaigns  != null && writeJson(dataDir, 'campaigns.json',  campaigns),
     ].filter(Boolean));
+    contentCache = null;   // invalidate the relay's resolution cache
     res.json({ ok: true });
   });
 
@@ -172,28 +176,37 @@ export async function createApp(config, opts = {}) {
         return;
       }
       const roomId = new URL(req.url, 'http://localhost').searchParams.get('room') || 'default';
-      wss.handleUpgrade(req, socket, head, ws => wss.emit('connection', ws, roomId));
+      const role   = roleOf(req);
+      wss.handleUpgrade(req, socket, head, ws => wss.emit('connection', ws, roomId, role));
     });
   });
 
-  wss.on('connection', (ws, roomId) => {
+  wss.on('connection', (ws, roomId, role) => {
     const room = getRoom(roomId);
+    ws.role = role;
     room.clients.add(ws);
 
     ws.on('message', raw => {
       let msg;
       try { msg = JSON.parse(raw); } catch { return; }
 
+      if (msg.type === 'ping') return;   // keepalive — don't relay or cache
+
       if (msg.type === 'hello') {
-        if (room.lastState) ws.send(JSON.stringify(room.lastState));
-        relay(room, ws, raw);
+        // Reply to the joiner with the room's current state, in the shape its
+        // role is allowed to see, then poke the DM to push fresh state.
+        if (room.lastState) sendState(ws, room.lastState);
+        for (const client of room.clients) {
+          if (client !== ws && client.readyState === WebSocket.OPEN) client.send(raw.toString());
+        }
         return;
       }
 
-      if (msg.type === 'ping') return;   // keepalive — don't relay or cache
-
+      // A DM state broadcast. Cache it raw; deliver per-role to everyone else.
       room.lastState = msg.stop ? null : msg;
-      relay(room, ws, raw);
+      for (const client of room.clients) {
+        if (client !== ws && client.readyState === WebSocket.OPEN) sendState(client, msg);
+      }
     });
 
     ws.on('close', () => {
@@ -202,13 +215,60 @@ export async function createApp(config, opts = {}) {
     });
   });
 
-  function relay(room, sender, raw) {
-    const str = raw.toString();
-    for (const client of room.clients) {
-      if (client !== sender && client.readyState === WebSocket.OPEN) {
-        client.send(str);
-      }
+  // Deliver a DM state object to one client. DM-role clients get it raw (they
+  // already have the full dataset); player-role clients get only a sanitized,
+  // server-resolved view of the active scene — no titles, notes, read-aloud,
+  // ids, or any other scene.
+  async function sendState(client, state) {
+    if (client.role === 'player') {
+      const view = await playerView(state);
+      if (view) client.send(JSON.stringify(view));
+    } else {
+      client.send(JSON.stringify(state));
     }
+  }
+
+  // Cache of content used to resolve a scene index for players; invalidated on save.
+  let contentCache = null;
+  async function loadContent() {
+    if (!contentCache) {
+      const [scenes, adventures] = await Promise.all([
+        readJson(dataDir, 'scenes.json'),
+        readJson(dataDir, 'adventures.json'),
+      ]);
+      contentCache = { scenes, adventures };
+    }
+    return contentCache;
+  }
+
+  // Mirror of the client's scene-list resolution (resolveAdventureScenesForActive).
+  function resolveScenes(state, scenes, adventures) {
+    const id = state.activeAdventureId;
+    if (id === 'all' || !id) return scenes;
+    const adv = adventures.find(a => a.id === id);
+    let list = adv ? (adv.scenes || []).map(sid => scenes.find(s => s.id === sid)).filter(Boolean) : scenes;
+    if (!list.length) list = scenes;
+    return list;
+  }
+
+  // The ONLY scene data a player ever receives: visuals + audio + playback flags.
+  async function playerView(state) {
+    if (!state || state.stop) return { type: 'view', stop: true };
+    const { scenes, adventures } = await loadContent();
+    const list  = resolveScenes(state, scenes, adventures);
+    const scene = state.sceneIndex >= 0 ? list[state.sceneIndex] : null;
+    if (!scene) return { type: 'view', waiting: true };
+    return {
+      type:      'view',
+      image:     scene.image ?? null,
+      audio:     scene.audio ?? null,
+      loopAudio: scene.loopAudio ?? true,
+      fit:       scene.fit ?? null,
+      paused:    !!state.paused,
+      volume:    state.volume,
+      muted:     !!state.muted,
+      blackout:  !!state.blackout,
+    };
   }
 
   function resetWsState() {

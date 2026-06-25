@@ -26,7 +26,13 @@ const sessionRole = await fetch('/api/me')
   .catch(() => 'player');
 const role = (wantsDM && sessionRole === 'dm') ? 'dm' : 'player';
 const isDM = role === 'dm';
+// A 'player'-level session is RESTRICTED: it has no dataset and receives only
+// sanitized active-scene pushes from the server. (A DM-level session viewing as
+// a cast tab is a full, trusted follower — not restricted.)
+const isRestricted = sessionRole === 'player';
 document.body.dataset.role = role;
+let playerImageSrc = null;   // restricted-player render diffing
+let playerAudioSrc = null;
 
 // ── State ────────────────────────────────────────────────────────────
 let allScenes     = [];
@@ -55,7 +61,7 @@ const audio = new AudioController(CONFIG.fadeMs);
 
 // DM broadcasts state; Player applies it. (See wiring in init.)
 const sync = createSync(role, {
-  onState: isDM ? null : applyRemoteState,
+  onState: isDM ? null : (isRestricted ? applyPlayerView : applyRemoteState),
   onHello: isDM ? () => broadcastState() : null,
   onOpen:  isDM ? () => { if (sessionStarted) broadcastState(); } : null,
 });
@@ -103,6 +109,7 @@ const overflowWrap       = $('overflow-wrap');
 const overflowBtn        = $('overflow-btn');
 const overflowPanel      = $('overflow-panel');
 const logoutBtn          = $('logout-btn');
+const homeLogoutBtn      = $('home-logout-btn');
 const sceneCounter       = $('scene-counter');
 const prevBtn            = $('prev-btn');
 const nextBtn            = $('next-btn');
@@ -159,7 +166,9 @@ function init() {
   dmOverlayBtn.addEventListener('click',  toggleDmOverlay);
   dmListenBtn.addEventListener('click',   toggleDmListen);
   dmStageBtn.addEventListener('click',    toggleDmStage);
-  logoutBtn.addEventListener('click',     () => fetch('/api/logout', { method: 'POST' }).then(() => { location.href = '/login'; }));
+  const logout = () => fetch('/api/logout', { method: 'POST' }).then(() => { location.href = '/login'; });
+  logoutBtn.addEventListener('click',     logout);
+  homeLogoutBtn.addEventListener('click', logout);
   volumeSlider.addEventListener('input',  onVolumeChange);
 
   document.addEventListener('touchstart', onInteraction, { passive: true });
@@ -189,6 +198,17 @@ function applyRoleUI() {
     audio.setLocalOutput(false);              // stay silent; cast tab is the sound
     dmOverlayBtn.classList.toggle('active', dmOverlayVisible);
     updateDmListenBtn();
+  } else if (isRestricted) {
+    document.title = 'DnDCast — Player';
+    startSubtitle.textContent = 'Player';
+    // Restricted player just watches: no transport, no nav, no overflow. Hide the
+    // whole controls bar and the tap zones; only art + audio remain. Fullscreen
+    // is still available via the 'f' key.
+    controls.hidden       = true;
+    presentDot.hidden     = true;
+    tapPrev.hidden        = true;
+    tapNext.hidden        = true;
+    playSoloBtn.hidden    = true;       // no dataset to play solo from
   } else {
     startSubtitle.textContent = 'Cast';
     // Cast tab: DM drives these via sync; hide them to avoid confusion/accidents.
@@ -208,6 +228,14 @@ async function startSession() {
   unlockAudioContext();
   sessionStarted = true;
   startOverlay.hidden = true;
+
+  // Restricted player has no dataset (/api/data is DM-only); just follow the DM.
+  if (isRestricted) {
+    waitingOverlay.hidden = false;
+    sync.requestState();
+    return;
+  }
+
   const ok = await loadData();
   if (!ok) return;
 
@@ -694,6 +722,48 @@ function applyRemoteState(s) {
   if (s.titleVisible !== titleVisible) setTitleVisible(s.titleVisible);
 }
 
+// Restricted player: render a server-sanitized scene view. There is no local
+// dataset and no index — the server sends only { image, audio, loopAudio, fit }
+// plus playback flags, so spoilers (titles, notes, read-aloud, other scenes)
+// never reach this client.
+function applyPlayerView(v) {
+  if (!sessionStarted) return;
+
+  if (v.stop) {                                  // DM returned home
+    audio.stopAll();
+    playerImageSrc = playerAudioSrc = null;
+    setBlackout(true, false);
+    waitingOverlay.hidden = false;
+    return;
+  }
+  if (v.waiting) {                               // DM hasn't picked a scene yet
+    audio.stopAll();
+    playerImageSrc = playerAudioSrc = null;
+    waitingOverlay.hidden = false;
+    return;
+  }
+  waitingOverlay.hidden = true;
+
+  // Volume/mute before any (re)start so the fade-in targets the right level.
+  if (v.volume !== audio.volume || v.muted !== audio.muted) {
+    volume = v.volume;
+    audio.syncVolume(v.volume, v.muted);
+  }
+
+  // Diff on src so a volume/pause nudge never reloads art or restarts the track.
+  if (v.image !== playerImageSrc) {
+    loadSceneImage(v.image, ++imageGeneration, '', v.fit);
+    playerImageSrc = v.image;
+  }
+  if (v.audio !== playerAudioSrc) {
+    audio.play({ audio: v.audio, loopAudio: v.loopAudio });
+    playerAudioSrc = v.audio;
+  }
+
+  if (v.paused !== audio.isPaused()) { if (v.paused) audio.pause(); else audio.resume(); }
+  if (v.blackout !== blackoutActive) setBlackout(v.blackout, false);
+}
+
 function resolveAdventureScenesForActive() {
   if (activeAdventureId === 'all' || !activeAdventureId) { currentScenes = [...allScenes]; return; }
   const adventure = allAdventures.find(a => a.id === activeAdventureId);
@@ -728,6 +798,11 @@ function showControls() {
 function onKeydown(e) {
   if (!sessionStarted) return;
   if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+  // Restricted player has no controls — only fullscreen.
+  if (isRestricted) {
+    if (e.key === 'f' || e.key === 'F') toggleFullscreen();
+    return;
+  }
   switch (e.key) {
     case 'ArrowRight': case ' ': e.preventDefault(); changeScene(1);  break;
     case 'ArrowLeft':            e.preventDefault(); changeScene(-1); break;
