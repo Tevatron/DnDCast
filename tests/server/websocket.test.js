@@ -214,7 +214,7 @@ describe('Player-role sanitized view', () => {
 
     expect(view).toEqual({
       type: 'view', image: 'assets/images/lich.jpg', audio: 'assets/audio/doom.mp3',
-      loopAudio: true, fit: null, paused: false, volume: 1, muted: false, blackout: false,
+      loopAudio: true, fit: null, paused: false, blackout: false,
     });
     // Belt-and-suspenders: no spoiler fields leaked.
     for (const k of ['title', 'notes', 'dmScript', 'id', 'sceneIndex', 'activeAdventureId', 'titleVisible']) {

@@ -93,7 +93,6 @@ const dmNotesOverlay     = $('dm-notes-overlay');
 const dmNotesText        = $('dm-notes-text');
 const dmScriptText       = $('dm-script-text');
 const dmOverlayBtn       = $('dm-overlay-btn');
-const dmListenBtn        = $('dm-listen-btn');
 const titleOverlay       = $('title-overlay');
 const controls           = $('controls');
 const presentDot         = $('present-dot');
@@ -120,6 +119,7 @@ const titleBtn           = $('title-btn');
 const fullscreenBtn      = $('fullscreen-btn');
 const presentBtn         = $('present-btn');
 const volumeSlider       = $('volume-slider');
+const muteBtn            = $('mute-btn');
 const tapPrev            = $('tap-prev');
 const tapNext            = $('tap-next');
 
@@ -128,6 +128,7 @@ function init() {
   loadState();
   volumeSlider.value = volume;
   audio.volume = volume;
+  updateMuteIcon();
   audio.onStateChange = updatePlayPauseBtn;     // button only; broadcasts are explicit
   audio.onError = (src, blocked) =>
     showError(blocked ? 'Tap ▶ to start audio (autoplay blocked).' : 'Audio not found: ' + src);
@@ -164,12 +165,12 @@ function init() {
   document.addEventListener('click',     e => { if (!overflowWrap.contains(e.target)) closeOverflow(); });
 
   dmOverlayBtn.addEventListener('click',  toggleDmOverlay);
-  dmListenBtn.addEventListener('click',   toggleDmListen);
   dmStageBtn.addEventListener('click',    toggleDmStage);
   const logout = () => fetch('/api/logout', { method: 'POST' }).then(() => { location.href = '/login'; });
   logoutBtn.addEventListener('click',     logout);
   homeLogoutBtn.addEventListener('click', logout);
   volumeSlider.addEventListener('input',  onVolumeChange);
+  muteBtn.addEventListener('click',       e => { e.preventDefault(); toggleMute(); });
 
   document.addEventListener('touchstart', onInteraction, { passive: true });
   document.addEventListener('mousemove',  onMouseMove);
@@ -192,12 +193,15 @@ function applyRoleUI() {
   if (isDM) {
     dmBadge.hidden       = false;
     dmOverlayBtn.hidden  = false;
-    dmListenBtn.hidden   = false;
     dmStageBtn.hidden    = false;
     startSubtitle.textContent = 'DM Control';
-    audio.setLocalOutput(false);              // stay silent; cast tab is the sound
+    // DM uses the same local volume slider as everyone, but starts MUTED — the
+    // cast tab is the room's sound, so the DM is silent until they raise it to
+    // monitor on this device.
+    audio.muted = true;
+    volumeSlider.value = 0;
+    updateMuteIcon();
     dmOverlayBtn.classList.toggle('active', dmOverlayVisible);
-    updateDmListenBtn();
   } else if (isRestricted) {
     document.title = 'DnDCast — Player';
     startSubtitle.textContent = 'Player';
@@ -534,18 +538,6 @@ function toggleDmStage() {
   if (!isDMStaged) broadcastState();   // snap cast to wherever DM navigated
 }
 
-function toggleDmListen() {
-  audio.setLocalOutput(!audio.localOutput);
-  updateDmListenBtn();
-}
-
-function updateDmListenBtn() {
-  const on = audio.localOutput;
-  dmListenBtn.classList.toggle('active', on);
-  dmListenBtn.innerHTML = on ? '&#x1F50A;' : '&#x1F507;';
-  dmListenBtn.title = on ? 'Audio playing on this device' : 'Listen to audio on this device';
-}
-
 // ── Scene list drawer ────────────────────────────────────────────────
 function buildSceneList() {
   sceneList.innerHTML = '';
@@ -629,6 +621,7 @@ function toggleTitle() {
 function toggleMute() {
   audio.toggleMute();
   volumeSlider.value = audio.muted ? 0 : volume;
+  updateMuteIcon();
   broadcastState();
 }
 
@@ -636,7 +629,14 @@ function onVolumeChange() {
   volume = parseFloat(volumeSlider.value);
   localStorage.setItem('dndcast_volume', volume);
   audio.setVolume(volume);
+  updateMuteIcon();
   broadcastState();
+}
+
+// 🔇 when silent (explicitly muted or volume at 0), 🔊 otherwise.
+function updateMuteIcon() {
+  const silent = audio.muted || volume === 0;
+  muteBtn.innerHTML = silent ? '&#x1F507;' : '&#x1F50A;';
 }
 
 function toggleFullscreen() {
@@ -680,11 +680,11 @@ function broadcastState() {
     activeAdventureId,
     sceneIndex:   currentIndex,
     paused:       !wantPlaying,
-    volume:       audio.volume,    // logical volume, independent of DM local mute
-    muted:        audio.muted,
     blackout:     blackoutActive,
     titleVisible,
   });
+  // Volume/mute are intentionally NOT broadcast: each device (cast, player)
+  // controls its own loudness locally; the DM only monitors via dm-listen.
 }
 
 // Player only: apply a snapshot from the DM, acting on diffs so a volume
@@ -712,12 +712,7 @@ function applyRemoteState(s) {
     currentIndex = -1;
   }
 
-  // Volume/mute before any scene (re)start so the fade-in targets the right level.
-  if (s.volume !== audio.volume || s.muted !== audio.muted) {
-    volume = s.volume;
-    volumeSlider.value = s.muted ? 0 : s.volume;
-    audio.syncVolume(s.volume, s.muted);
-  }
+  // Volume/mute are local to this cast device (not driven by the DM).
 
   if (s.sceneIndex < 0) return;                // DM hasn't picked a scene yet
   waitingOverlay.hidden = true;                // a real scene is incoming

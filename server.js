@@ -258,6 +258,7 @@ export async function createApp(config, opts = {}) {
     const list  = resolveScenes(state, scenes, adventures);
     const scene = state.sceneIndex >= 0 ? list[state.sceneIndex] : null;
     if (!scene) return { type: 'view', waiting: true };
+    // Volume/mute are intentionally omitted — players control their own loudness.
     return {
       type:      'view',
       image:     scene.image ?? null,
@@ -265,8 +266,6 @@ export async function createApp(config, opts = {}) {
       loopAudio: scene.loopAudio ?? true,
       fit:       scene.fit ?? null,
       paused:    !!state.paused,
-      volume:    state.volume,
-      muted:     !!state.muted,
       blackout:  !!state.blackout,
     };
   }

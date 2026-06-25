@@ -104,7 +104,7 @@
       <button id="next-btn"            title="Next scene (&#x2192; or Space)">&#x23ED;</button>
       <button id="scenes-btn"          title="Scene list">&#x2630;</button>
       <label id="vol-label" title="Volume">
-        <span>&#x1F50A;</span>
+        <span id="mute-btn" role="button" title="Mute / unmute" style="cursor:pointer">&#x1F50A;</span>
         <input type="range" id="volume-slider" min="0" max="1" step="0.05" value="1">
       </label>
       <div id="overflow-wrap">
@@ -115,7 +115,6 @@
           <button id="switch-adventure-btn" title="Switch adventure">&#x21BA;</button>
           <button id="present-btn"        title="Presentation mode (P)">&#x25A1;</button>
           <button id="dm-overlay-btn"     title="Toggle notes overlay (N)" hidden>&#x1F4D6;</button>
-          <button id="dm-listen-btn"      title="Listen to audio on this device" hidden>&#x1F507;</button>
           <button id="dm-stage-btn"       title="Stage mode — suspend cast updates (Z)" hidden>&#x2298;</button>
           <button id="logout-btn"          title="Log out">&#x23FB;</button>
         </div>
