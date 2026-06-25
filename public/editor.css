@@ -437,9 +437,13 @@ html, body {
   margin-bottom: 0.75rem;
 }
 
+/* Cap the selected list so adding scenes scrolls here instead of pushing the
+   picker below out from under the cursor. */
 #adventure-scene-list {
   list-style: none;
   margin-bottom: 0.75rem;
+  max-height: 240px;
+  overflow-y: auto;
 }
 
 .adventure-scene-row {
@@ -448,9 +452,22 @@ html, body {
   gap: 0.4rem;
   padding: 0.45rem 0;
   border-bottom: 1px solid #141414;
+  border-top: 2px solid transparent;   /* reserved for the drag-over indicator */
 }
 
 .adventure-scene-row:last-child { border-bottom: none; }
+.adventure-scene-row.dragging   { opacity: 0.4; }
+.adventure-scene-row.drag-over  { border-top-color: #c9a84c; }
+
+.scene-drag-handle {
+  cursor: grab;
+  color: #444;
+  font-size: 0.95rem;
+  line-height: 1;
+  flex-shrink: 0;
+  padding: 0 2px;
+}
+.scene-drag-handle:active { cursor: grabbing; }
 
 .adventure-scene-title {
   flex: 1;
