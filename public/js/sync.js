@@ -28,7 +28,9 @@ export function createSync(role, handlers = {}) {
     const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
     ws = new WebSocket(`${protocol}//${location.host}/ws?t=${encodeURIComponent(token)}`);
 
+    let didOpen = false;
     ws.addEventListener('open', () => {
+      didOpen = true;
       if (role === 'player') api.requestState();
       if (onOpen) onOpen();
       pingInterval = setInterval(() => {
@@ -47,6 +49,15 @@ export function createSync(role, handlers = {}) {
       clearInterval(pingInterval);
       pingInterval = null;
       ws = null;
+      if (!didOpen) {
+        // Connection was rejected before the handshake completed — token is likely
+        // stale after a server restart. Try to reissue via the existing session.
+        fetch('/api/ws-token', { method: 'POST' })
+          .then(r => r.ok ? r.json() : Promise.reject())
+          .then(({ wsToken }) => { localStorage.setItem('dndcast_wsToken', wsToken); connect(); })
+          .catch(() => { location.href = '/login'; });
+        return;
+      }
       setTimeout(connect, 2000);
     });
     ws.addEventListener('error', () => ws?.close());

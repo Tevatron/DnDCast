@@ -20,6 +20,7 @@ sessions/
 # ── Playwright test artifacts ────────────────────────────────────────────
 playwright-report/
 test-results/
+.last-run.json
 
 # ── Dependencies ────────────────────────────────────────────────────────
 node_modules/

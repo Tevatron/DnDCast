@@ -1,6 +1,8 @@
 import { test, expect, request } from '@playwright/test';
 import { loginViaUI, PASSWORD } from './helpers.js';
 
+const REMOTE = !!process.env.BASE_URL;
+
 // Helper: log in and reach the player page in a given Playwright page object.
 async function startPlayer(page, role = '') {
   await loginViaUI(page);
@@ -13,6 +15,8 @@ test.describe.configure({ mode: 'serial' });
 
 test.describe('DM / Cast sync', () => {
   test.beforeEach(async ({ request }) => {
+    if (REMOTE) return;   // live server has real data; skip test-only setup
+
     // Clear cached WS state so each test starts with no lastState.
     await request.post('/_test_/reset');
 
@@ -55,10 +59,14 @@ test.describe('DM / Cast sync', () => {
       await startPlayer(castPage, '');
       await expect(castPage.locator('#waiting-overlay')).toBeVisible();
 
-      // Start DM tab and pick the session.
+      // Start DM tab and pick an adventure.
       await startPlayer(dmPage, 'dm');
-      // No campaign, so session picker opens directly.
-      await dmPage.locator('#adventure-overlay .picker-card', { hasText: 'Sync Adventure' }).click();
+      // No campaign, so adventure picker opens directly.
+      // On a local test server use the seeded adventure; on a live server use whatever's first.
+      const adventureCard = REMOTE
+        ? dmPage.locator('#adventure-overlay .picker-card').first()
+        : dmPage.locator('#adventure-overlay .picker-card', { hasText: 'Sync Adventure' });
+      await adventureCard.click();
 
       // Cast tab should leave waiting state and show the first scene title.
       await expect(castPage.locator('#waiting-overlay')).toBeHidden({ timeout: 5000 });

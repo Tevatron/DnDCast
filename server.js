@@ -92,6 +92,15 @@ export async function createApp(config, opts = {}) {
     req.session.destroy(() => res.redirect('/login'));
   });
 
+  // Reissue a WS token for an already-authenticated session.
+  // Called by the client when a WebSocket connection is rejected (stale token after server restart).
+  app.post('/api/ws-token', (req, res) => {
+    if (!req.session.authed) return res.status(401).json({ error: 'Unauthorized' });
+    const wsToken = crypto.randomBytes(16).toString('hex');
+    wsTokens.set(wsToken, true);
+    res.json({ wsToken });
+  });
+
   // ── Protected routes ────────────────────────────────────────────────
   app.use(requireAuth);
 

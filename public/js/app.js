@@ -94,6 +94,7 @@ const errorMsg           = $('error-msg');
 const overflowWrap       = $('overflow-wrap');
 const overflowBtn        = $('overflow-btn');
 const overflowPanel      = $('overflow-panel');
+const logoutBtn          = $('logout-btn');
 const sceneCounter       = $('scene-counter');
 const prevBtn            = $('prev-btn');
 const nextBtn            = $('next-btn');
@@ -150,6 +151,7 @@ function init() {
   dmOverlayBtn.addEventListener('click',  toggleDmOverlay);
   dmListenBtn.addEventListener('click',   toggleDmListen);
   dmStageBtn.addEventListener('click',    toggleDmStage);
+  logoutBtn.addEventListener('click',     () => fetch('/api/logout', { method: 'POST' }).then(() => { location.href = '/login'; }));
   volumeSlider.addEventListener('input',  onVolumeChange);
 
   document.addEventListener('touchstart', onInteraction, { passive: true });
