@@ -49,6 +49,7 @@ const audio = new AudioController(CONFIG.fadeMs);
 const sync = createSync(role, {
   onState: isDM ? null : applyRemoteState,
   onHello: isDM ? () => broadcastState() : null,
+  onOpen:  isDM ? () => { if (sessionStarted) broadcastState(); } : null,
 });
 
 // ── DOM refs ─────────────────────────────────────────────────────────

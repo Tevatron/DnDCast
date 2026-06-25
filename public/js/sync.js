@@ -1,16 +1,18 @@
 // sync.js — WebSocket-based DM/Cast sync
 //
-// Same external interface as before: createSync(role, { onState, onHello })
+// Same external interface as before: createSync(role, { onState, onHello, onOpen })
 // returns { post(snapshot), requestState() }.
 //
 // DM posts state snapshots; server relays to all cast clients.
 // Cast clients send { type:'hello' }; server replies with cached state
 // and relays the hello to DM for a fresh snapshot.
 // Auto-reconnects on disconnect with 2s backoff.
+// Sends a keepalive ping every 30s to prevent Cloudflare's 100s idle timeout.
 
 export function createSync(role, handlers = {}) {
-  const { onState, onHello } = handlers;
+  const { onState, onHello, onOpen } = handlers;
   let ws = null;
+  let pingInterval = null;
 
   const api = {
     post(snapshot) {
@@ -28,6 +30,10 @@ export function createSync(role, handlers = {}) {
 
     ws.addEventListener('open', () => {
       if (role === 'player') api.requestState();
+      if (onOpen) onOpen();
+      pingInterval = setInterval(() => {
+        if (ws?.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ type: 'ping' }));
+      }, 30000);
     });
 
     ws.addEventListener('message', e => {
@@ -37,7 +43,12 @@ export function createSync(role, handlers = {}) {
       else                      { if (onState) onState(msg); }
     });
 
-    ws.addEventListener('close', () => { ws = null; setTimeout(connect, 2000); });
+    ws.addEventListener('close', () => {
+      clearInterval(pingInterval);
+      pingInterval = null;
+      ws = null;
+      setTimeout(connect, 2000);
+    });
     ws.addEventListener('error', () => ws?.close());
   }
 

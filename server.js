@@ -155,6 +155,8 @@ export async function createApp(config, opts = {}) {
         return;
       }
 
+      if (msg.type === 'ping') return;   // keepalive — don't relay or cache
+
       lastState = msg.stop ? null : msg;
       relay(ws, raw);
     });
