@@ -153,12 +153,18 @@
 
         <!-- Scene list manager -->
         <div id="adventure-scenes-section">
-          <h4 class="section-heading">Scenes in this adventure</h4>
+          <div class="section-heading-row">
+            <h4 class="section-heading">Scenes in this adventure</h4>
+            <div id="add-scene-dropdown">
+              <button type="button" id="adventure-add-scene-btn" class="btn-add">+ Add scene</button>
+              <div id="add-scene-popover" hidden>
+                <input id="scene-picker-search" type="search" placeholder="Search scenes…" autocomplete="off">
+                <div id="scene-picker-panel"></div>
+              </div>
+            </div>
+          </div>
           <div id="adventure-scene-empty" class="empty-state small" hidden>No scenes added yet.</div>
           <ul id="adventure-scene-list"></ul>
-          <h4 class="section-heading section-heading-gap">All scenes</h4>
-          <input id="scene-picker-search" type="search" placeholder="Filter scenes…" autocomplete="off">
-          <div id="scene-picker-panel"></div>
         </div>
 
         <!-- Actions sit below the scene list -->

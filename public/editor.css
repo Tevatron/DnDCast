@@ -473,6 +473,14 @@ html, body {
   margin-bottom: 0.75rem;
 }
 
+.section-heading-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+}
+.section-heading-row .section-heading { margin-bottom: 0; }
+
 /* Cap the selected list so adding scenes scrolls here instead of pushing the
    picker below out from under the cursor. */
 #adventure-scene-list {
@@ -541,7 +549,23 @@ html, body {
 .scene-remove-btn       { color: #6a3030; border-color: #2a1414; }
 .scene-remove-btn:hover { color: #c05050; background: #1a0a0a; }
 
-.section-heading-gap { margin-top: 1rem; }
+/* ── "Add scene" dropdown ───────────────────────────────────────────── */
+
+#add-scene-dropdown { position: relative; }
+
+#add-scene-popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 30;
+  width: 300px;
+  max-width: 80vw;
+  background: #0d0d0d;
+  border: 1px solid #2a2a2a;
+  border-radius: 6px;
+  padding: 0.4rem;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55);
+}
 
 #scene-picker-search {
   display: block;
@@ -560,12 +584,24 @@ html, body {
 #scene-picker-search:focus { border-color: #555; }
 
 #scene-picker-panel {
-  max-height: 200px;
+  max-height: 240px;
   overflow-y: auto;
-  border: 1px solid #1e1e1e;
-  border-radius: 4px;
-  background: #0d0d0d;
 }
+
+.add-scene-option {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: none;
+  border: none;
+  color: #bbb;
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.add-scene-option:hover { background: #1a1a1a; color: #e6e6e6; }
 
 .picker-row {
   display: flex;

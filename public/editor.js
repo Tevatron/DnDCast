@@ -3,8 +3,6 @@
 // Admin editor for scenes, adventures, and campaigns.
 // =====================================================================
 
-import { filterList } from './js/utils.js';
-
 // === State ============================================================
 
 let editorScenes     = [];
@@ -62,6 +60,9 @@ const adventureSceneList     = $('adventure-scene-list');
 const adventureSceneEmpty    = $('adventure-scene-empty');
 const scenePicker            = $('scene-picker-panel');
 const scenePickerSearch      = $('scene-picker-search');
+const addSceneDropdown       = $('add-scene-dropdown');
+const advAddSceneBtn         = $('adventure-add-scene-btn');
+const addScenePopover        = $('add-scene-popover');
 
 // Campaigns
 const addCampaignBtn      = $('add-campaign-btn');
@@ -102,10 +103,12 @@ function init() {
   addAdventureBtn.addEventListener('click', () => openAdventureEdit(null));
   adventureForm.addEventListener('submit', e => { e.preventDefault(); saveAdventure(); });
   deleteAdventureBtn.addEventListener('click', deleteAdventure);
-  scenePickerSearch.addEventListener('input', filterScenePicker);
+  scenePickerSearch.addEventListener('input', renderScenePicker);
+  advAddSceneBtn.addEventListener('click', e => { e.stopPropagation(); toggleAddScene(); });
+  document.addEventListener('click', e => { if (!addSceneDropdown.contains(e.target)) closeAddScene(); });
   // Changing the campaign changes which campaign-private scenes are offered.
   adventureCampaignSelect.addEventListener('change', () => {
-    if (!adventureEditPanel.hidden) renderScenePicker();
+    if (!addScenePopover.hidden) renderScenePicker();
   });
 
   // Auto-slugify adventure title → id
@@ -542,7 +545,7 @@ function openAdventureEdit(idx) {
   adventureCampaignSelect.value = adventure.campaignId || '';
 
   editingAdventureScenes = Array.isArray(adventure.scenes) ? [...adventure.scenes] : [];
-  renderScenePicker();
+  closeAddScene();
   renderAdventureSceneList();
 
   adventureDirty = false;                 // freshly loaded — no unsaved edits yet
@@ -649,8 +652,6 @@ function renderAdventureSceneList() {
     li.append(handle, titleEl, idEl, upBtn, downBtn, removeBtn);
     adventureSceneList.appendChild(li);
   });
-
-  updatePickerCheckboxes();
 }
 
 // HTML5 drag-and-drop reordering for a selected-scene row at index i.
@@ -681,45 +682,48 @@ function wireSceneDrag(li, i) {
   });
 }
 
-function filterScenePicker() { filterList(scenePickerSearch, scenePicker, '.picker-row'); }
+function toggleAddScene() { addScenePopover.hidden ? openAddScene() : closeAddScene(); }
 
-// Build the full checkbox picker — called once when the adventure editor opens.
-// Preserves scroll position on reorder by only syncing checkbox state after that.
-function renderScenePicker() {
+function openAddScene() {
   scenePickerSearch.value = '';
+  renderScenePicker();
+  addScenePopover.hidden = false;
+  scenePickerSearch.focus();
+}
+
+function closeAddScene() { addScenePopover.hidden = true; }
+
+// Render the "Add scene" popover: scenes not yet in this adventure, allowed by
+// privacy, matching the search. Clicking one adds it to the list and keeps the
+// popover open (it drops out of the list) so several can be added in a row.
+function renderScenePicker() {
   scenePicker.innerHTML = '';
-  if (!editorScenes.length) {
+  const q = scenePickerSearch.value.trim().toLowerCase();
+  const addable = editorScenes.filter(s =>
+    !editingAdventureScenes.includes(s.id) &&
+    sceneAllowedInAdventure(s) &&
+    ((s.title || '').toLowerCase().includes(q) || s.id.toLowerCase().includes(q)));
+
+  if (!addable.length) {
     const empty = document.createElement('p');
     empty.className   = 'empty-state small';
-    empty.textContent = 'No scenes exist yet. Create scenes first.';
+    empty.textContent = editorScenes.length ? 'No matching scenes.' : 'No scenes exist yet. Create scenes first.';
     scenePicker.appendChild(empty);
     return;
   }
-  editorScenes.forEach(scene => {
-    if (!sceneAllowedInAdventure(scene)) return;   // hide other owners' private scenes
 
-    const row = document.createElement('label');
-    row.className = 'picker-row';
-
-    const cb = document.createElement('input');
-    cb.type  = 'checkbox';
-    cb.value = scene.id;
-    cb.checked = editingAdventureScenes.includes(scene.id);
-    cb.addEventListener('change', () => {
-      if (cb.checked) {
-        if (!editingAdventureScenes.includes(scene.id)) editingAdventureScenes.push(scene.id);
-      } else {
-        const i = editingAdventureScenes.indexOf(scene.id);
-        if (i !== -1) editingAdventureScenes.splice(i, 1);
-      }
+  addable.forEach(scene => {
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'add-scene-option';
+    row.textContent = (scene.title || scene.id) + (scene.privateTo ? ' · private' : '');
+    row.addEventListener('click', () => {
+      editingAdventureScenes.push(scene.id);
       adventureDirty = true;
       renderAdventureSceneList();
+      renderScenePicker();          // remove the just-added option; popover stays open
+      scenePickerSearch.focus();
     });
-
-    const label = document.createElement('span');
-    label.textContent = (scene.title || scene.id) + (scene.privateTo ? ' · private' : '');
-
-    row.append(cb, label);
     scenePicker.appendChild(row);
   });
 }
@@ -733,13 +737,6 @@ function sceneAllowedInAdventure(scene) {
   const advId  = adventureForm.querySelector('[name="id"]').value.trim();
   const campId = adventureCampaignSelect.value;
   return scene.privateTo === advId || (!!campId && scene.privateTo === campId);
-}
-
-// Sync checked state without rebuilding — keeps scroll position intact.
-function updatePickerCheckboxes() {
-  scenePicker.querySelectorAll('input[type="checkbox"]').forEach(cb => {
-    cb.checked = editingAdventureScenes.includes(cb.value);
-  });
 }
 
 function removeSceneFromAdventure(idx) {
