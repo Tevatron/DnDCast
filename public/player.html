@@ -154,7 +154,7 @@
   <div id="quick-scene-overlay" hidden>
     <div id="quick-scene-box">
       <div id="qs-header">
-        <h2 class="picker-heading">New Scene</h2>
+        <h2 id="qs-heading" class="picker-heading">New Scene</h2>
         <button id="qs-close-btn" type="button" title="Cancel">&#x2715;</button>
       </div>
       <form id="quick-scene-form" autocomplete="off">
@@ -192,6 +192,7 @@
         <div id="qs-status"></div>
         <div class="qs-actions">
           <button type="submit" id="qs-save" class="qs-save">Add &amp; Show</button>
+          <button type="button" id="qs-save-only" class="qs-save-ghost">Add only</button>
           <button type="button" id="qs-cancel" class="text-btn">Cancel</button>
         </div>
       </form>

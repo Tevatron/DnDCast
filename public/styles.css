@@ -946,6 +946,33 @@ html, body {
 }
 .qs-save:active { opacity: 0.8; }
 
+.qs-save-ghost {
+  padding: 0.6rem 1.2rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  background: none;
+  color: #c9a84c;
+  border: 1px solid #4a4128;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.qs-save-ghost:active { background: rgba(201,168,76,0.1); }
+
+/* DM scene-drawer per-row edit pencil */
+.scene-label { flex: 1; }
+.scene-edit-pencil {
+  background: none;
+  border: none;
+  color: #777;
+  font-size: 1rem;
+  cursor: pointer;
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.scene-edit-pencil:hover { color: #c9a84c; background: #1e1e1e; }
+
 /* ── Landscape adjustments ─────────────────────────────────────────── */
 
 @media (orientation: landscape) and (max-height: 480px) {

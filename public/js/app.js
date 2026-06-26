@@ -140,6 +140,9 @@ const qsScript           = $('qs-script');
 const qsFit              = $('qs-fit');
 const qsLoop             = $('qs-loop');
 const qsStatus           = $('qs-status');
+const qsHeading          = $('qs-heading');
+const qsSave             = $('qs-save');
+const qsSaveOnly         = $('qs-save-only');
 const qsCloseBtn         = $('qs-close-btn');
 const qsCancel           = $('qs-cancel');
 
@@ -193,11 +196,12 @@ function init() {
   volumeSlider.addEventListener('input',  onVolumeChange);
   muteBtn.addEventListener('click',       e => { e.preventDefault(); toggleMute(); });
 
-  // Quick add-scene (DM only)
-  drawerAddBtn.addEventListener('click', openQuickScene);
+  // Quick add/edit-scene (DM only)
+  drawerAddBtn.addEventListener('click', () => openQuickScene());
   qsCloseBtn.addEventListener('click',   closeQuickScene);
   qsCancel.addEventListener('click',     closeQuickScene);
-  qsForm.addEventListener('submit',      e => { e.preventDefault(); saveQuickScene(); });
+  qsForm.addEventListener('submit',      e => { e.preventDefault(); saveQuickScene(true); });
+  qsSaveOnly.addEventListener('click',   () => saveQuickScene(false));
   qsImageBrowse.addEventListener('click', () => qsImageFile.click());
   qsAudioBrowse.addEventListener('click', () => qsAudioFile.click());
   qsImageFile.addEventListener('change', () => uploadInto(qsImageFile, qsImage));
@@ -649,8 +653,18 @@ function buildSceneList() {
     const label = document.createElement('span');
     num.className   = 'scene-num';
     num.textContent = i + 1;
+    label.className = 'scene-label';
     label.textContent = scene.title || scene.id || 'Scene ' + (i + 1);
     li.append(num, label);
+    // DM: a pencil to edit the scene in place (without navigating to it).
+    if (isDM) {
+      const edit = document.createElement('button');
+      edit.className = 'scene-edit-pencil';
+      edit.title = 'Edit scene';
+      edit.innerHTML = '&#x270E;';
+      edit.addEventListener('click', e => { e.stopPropagation(); openQuickScene(scene); });
+      li.append(edit);
+    }
     li.addEventListener('click', () => { goToScene(i); closeDrawer(); });
     sceneList.appendChild(li);
   });
@@ -939,13 +953,41 @@ function loadState() {
   if (fit === 'cover' || fit === 'contain') CONFIG.objectFit = fit;
 }
 
-// ── Quick add-scene (DM only) ────────────────────────────────────────
-// Author a scene mid-session and append it to the current adventure, without
-// leaving for the editor. Persists via /api/save (DM-gated server-side).
-function openQuickScene() {
+// ── Quick add/edit-scene (DM only) ───────────────────────────────────
+// Author or tweak a scene mid-session without leaving for the editor. Persists
+// via /api/save (DM-gated server-side). Pass a scene to edit it; omit to create.
+let qsEditingId  = null;   // id of the scene being edited, or null when creating
+let qsOrigImages = null;   // preserved images[] of a multi-image scene being edited
+
+function openQuickScene(scene = null) {
   qsForm.reset();
   qsLoop.checked = true;
   setQsStatus('', false);
+  qsEditingId  = null;
+  qsOrigImages = null;
+
+  if (scene && scene.id) {
+    qsEditingId = scene.id;
+    qsHeading.textContent = 'Edit Scene';
+    qsSave.textContent = 'Save & Show';
+    qsSaveOnly.textContent = 'Save';
+    const imgs = sceneImages(scene);
+    qsTitle.value  = scene.title || '';
+    qsImage.value  = imgs[0] ? imgs[0].src : '';
+    qsAudio.value  = scene.audio || '';
+    qsNotes.value  = scene.notes || '';
+    qsScript.value = scene.dmScript || '';
+    qsFit.value    = (imgs[0] && imgs[0].fit) === 'cover' ? 'cover' : 'contain';
+    qsLoop.checked = scene.loopAudio !== false;
+    qsSilent.checked = !!scene.silent;
+    // A multi-image scene's extra images aren't editable here — preserve them.
+    qsOrigImages = Array.isArray(scene.images) && scene.images.length > 1 ? [...scene.images] : null;
+  } else {
+    qsHeading.textContent = 'New Scene';
+    qsSave.textContent = 'Add & Show';
+    qsSaveOnly.textContent = 'Add only';
+  }
+
   syncQsSilent();
   quickSceneOverlay.hidden = false;
   qsTitle.focus();
@@ -983,8 +1025,9 @@ async function uploadInto(fileInput, pathInput) {
   fileInput.value = '';
 }
 
-async function saveQuickScene() {
-  const scene = {
+// Build the fields the quick modal manages (shared by create + edit).
+function quickSceneFields() {
+  const f = {
     title:     qsTitle.value.trim(),
     image:     qsImage.value.trim(),
     audio:     qsAudio.value.trim(),
@@ -994,32 +1037,67 @@ async function saveQuickScene() {
     loopAudio: qsLoop.checked,
     silent:    qsSilent.checked,
   };
-  // Keep JSON clean — drop blanks/defaults (matches the editor's saveScene).
-  if (!scene.image)            delete scene.image;
-  if (!scene.audio)            delete scene.audio;
-  if (!scene.notes)            delete scene.notes;
-  if (!scene.dmScript)         delete scene.dmScript;
-  if (!scene.title)            delete scene.title;
-  if (!scene.silent)           delete scene.silent;
-  if (scene.fit === 'contain') delete scene.fit;
-  scene.id = uniqueSceneId(scene.title || 'scene');
+  return f;
+}
 
-  allScenes.push(scene);
+// Apply the managed fields onto a scene object, keeping JSON clean. Preserves a
+// multi-image scene's extra images, only updating the first image's src/fit.
+function applyQuickFields(scene, f) {
+  scene.title    = f.title;
+  scene.audio    = f.audio;
+  scene.notes    = f.notes;
+  scene.dmScript = f.dmScript;
+  scene.loopAudio = f.loopAudio;
+  scene.silent   = f.silent;
 
-  // Insert right after the current scene in a real adventure; for 'all'/standalone
-  // there's no adventure to edit, so it lands at the end of the full scene list.
-  let newIndex;
-  const adventure = allAdventures.find(a => a.id === activeAdventureId);
-  if (adventure) {
-    scene.privateTo = adventure.id;   // authored inside an adventure → private to it
-    adventure.scenes = Array.isArray(adventure.scenes) ? adventure.scenes : [];
-    const at = Math.min(Math.max(currentIndex + 1, 0), adventure.scenes.length);
-    adventure.scenes.splice(at, 0, scene.id);
-    resolveAdventureScenesForActive();
-    newIndex = at;
-  } else {
-    currentScenes = [...allScenes];
-    newIndex = currentScenes.length - 1;
+  if (qsOrigImages) {                 // multi-image scene: update only the first
+    const rest = qsOrigImages.slice(1);
+    const first = f.fit === 'cover' ? { src: f.image, fit: 'cover' } : f.image;
+    scene.images = [first, ...rest];
+    delete scene.image; delete scene.fit;
+  } else {                            // single image (legacy shape)
+    delete scene.images;
+    scene.image = f.image;
+    scene.fit   = f.fit;
+    if (!scene.image)            delete scene.image;
+    if (scene.fit === 'contain') delete scene.fit;
+  }
+
+  if (!scene.title)    delete scene.title;
+  if (!scene.audio)    delete scene.audio;
+  if (!scene.notes)    delete scene.notes;
+  if (!scene.dmScript) delete scene.dmScript;
+  if (!scene.silent)   delete scene.silent;
+  return scene;
+}
+
+// show=true navigates to the scene after saving; false just persists it.
+async function saveQuickScene(show) {
+  const f = quickSceneFields();
+  let targetIndex = currentIndex;
+
+  if (qsEditingId) {                  // ── edit an existing scene ──
+    const scene = allScenes.find(s => s.id === qsEditingId);
+    if (!scene) { setQsStatus('Scene no longer exists.', true); return; }
+    applyQuickFields(scene, f);
+    const idx = currentScenes.findIndex(s => s.id === qsEditingId);
+    if (idx !== -1) targetIndex = idx;
+  } else {                            // ── create a new scene ──
+    const scene = applyQuickFields({}, f);
+    scene.id = uniqueSceneId(f.title || 'scene');
+    allScenes.push(scene);
+    const adventure = allAdventures.find(a => a.id === activeAdventureId);
+    if (adventure) {
+      scene.privateTo = adventure.id;   // authored inside an adventure → private to it
+      adventure.scenes = Array.isArray(adventure.scenes) ? adventure.scenes : [];
+      const at = Math.min(Math.max(currentIndex + 1, 0), adventure.scenes.length);
+      adventure.scenes.splice(at, 0, scene.id);
+      resolveAdventureScenesForActive();
+      targetIndex = at;
+    } else {
+      currentScenes = [...allScenes];
+      targetIndex = currentScenes.length - 1;
+    }
   }
 
   setQsStatus('Saving…', false);
@@ -1037,8 +1115,10 @@ async function saveQuickScene() {
 
   buildSceneList();
   closeQuickScene();
-  closeDrawer();
-  goToScene(newIndex);            // present the new scene immediately
+  // Show it, or refresh the live display if we edited the scene already on screen.
+  if (show) { closeDrawer(); goToScene(targetIndex); }
+  else if (qsEditingId && targetIndex === currentIndex) goToScene(currentIndex);
+  else updateSceneListHighlight();
 }
 
 function uniqueSceneId(title) {
