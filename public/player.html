@@ -116,6 +116,7 @@
           <button id="present-btn"        title="Presentation mode (P)">&#x25A1;</button>
           <button id="dm-overlay-btn"     title="Toggle notes overlay (N)" hidden>&#x1F4D6;</button>
           <button id="dm-stage-btn"       title="Stage mode — suspend cast updates (Z)" hidden>&#x2298;</button>
+          <button id="notebook-btn"        title="Notebook — your campaign/adventure/scene notes" hidden>&#x1F4D3;</button>
           <button id="home-nav-btn"        title="Back to home page">&#x2302;</button>
           <button id="logout-btn"          title="Log out">&#x23FB;</button>
         </div>
@@ -146,6 +147,31 @@
       <a href="index.html" class="editor-link">&#x2302; Home</a>
       <a href="editor.html" class="editor-link">&#x270F; Edit Scenes &amp; Sessions</a>
     </div>
+  </div>
+
+  <!-- ── Notebook drawer (DM role only) ─────────────────────────── -->
+  <!-- Personal ad-hoc notes tied to the current campaign/adventure/scene.
+       DM-only for now; every note is owned by a placeholder super-user until
+       real accounts exist (see ROADMAP). -->
+  <div id="notebook-backdrop" hidden></div>
+  <div id="notebook-drawer" hidden>
+    <div class="nb-header">
+      <span>Notebook</span>
+      <button id="notebook-close-btn" title="Close">&#x2715;</button>
+    </div>
+    <ul id="notebook-list"></ul>
+    <div id="notebook-empty" class="nb-empty" hidden>No notes for the current campaign, adventure, or scene.</div>
+    <form id="notebook-form" autocomplete="off">
+      <label class="nb-scope-label">For
+        <select id="note-scope-select"></select>
+      </label>
+      <textarea id="note-text" rows="3" placeholder="Write a note…"></textarea>
+      <div class="nb-actions">
+        <button type="submit" id="note-save-btn">Save note</button>
+        <button type="button" id="note-cancel-btn" class="text-btn" hidden>Cancel</button>
+        <span id="note-status"></span>
+      </div>
+    </form>
   </div>
 
   <!-- ── Quick add-scene modal (DM role only) ──────────────────── -->

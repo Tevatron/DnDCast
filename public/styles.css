@@ -973,6 +973,160 @@ html, body {
 }
 .scene-edit-pencil:hover { color: #c9a84c; background: #1e1e1e; }
 
+/* ── Notebook drawer (DM only) ─────────────────────────────────────── */
+
+#notebook-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(0, 0, 0, 0.55);
+}
+
+#notebook-drawer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 41;
+  background: #111;
+  border-top: 1px solid #222;
+  max-height: 75vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.nb-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid #1e1e1e;
+  font-weight: 600;
+  font-size: 0.9rem;
+  letter-spacing: 0.05em;
+  flex-shrink: 0;
+}
+
+#notebook-close-btn {
+  background: none;
+  border: none;
+  color: #888;
+  font-size: 1.1rem;
+  cursor: pointer;
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: 4px;
+}
+#notebook-close-btn:active { background: #1e1e1e; }
+
+#notebook-list {
+  list-style: none;
+  overflow-y: auto;
+  flex: 1;
+  -webkit-overflow-scrolling: touch;
+}
+
+.nb-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid #171717;
+}
+
+.nb-item-body { flex: 1; min-width: 0; }
+
+.nb-tag {
+  display: inline-block;
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #c9a84c;
+  border: 1px solid rgba(201, 168, 76, 0.3);
+  border-radius: 3px;
+  padding: 1px 5px;
+  margin-bottom: 0.3rem;
+}
+
+.nb-text { color: #ddd; font-size: 0.9rem; line-height: 1.45; white-space: pre-wrap; }
+
+.nb-edit, .nb-del {
+  background: none;
+  border: none;
+  color: #666;
+  font-size: 0.9rem;
+  cursor: pointer;
+  min-width: 34px;
+  min-height: 34px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.nb-edit:hover { color: #c9a84c; background: #1e1e1e; }
+.nb-del:hover  { color: #c05050; background: #1a0a0a; }
+
+.nb-empty {
+  padding: 1rem;
+  color: #555;
+  font-size: 0.82rem;
+  font-style: italic;
+}
+
+#notebook-form {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid #1a1a1a;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.nb-scope-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #777;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+#note-scope-select {
+  background: #0c0c0c;
+  border: 1px solid #2a2a2a;
+  border-radius: 4px;
+  color: #ddd;
+  font-size: 0.82rem;
+  padding: 4px 8px;
+}
+
+#note-text {
+  background: #0c0c0c;
+  border: 1px solid #2a2a2a;
+  border-radius: 5px;
+  color: #ddd;
+  font-size: 0.9rem;
+  font-family: inherit;
+  padding: 8px 10px;
+  resize: vertical;
+}
+#note-text:focus, #note-scope-select:focus { outline: none; border-color: #555; }
+
+.nb-actions { display: flex; align-items: center; gap: 1rem; }
+
+#note-save-btn {
+  background: #c9a84c;
+  color: #0a0a0a;
+  border: none;
+  border-radius: 5px;
+  font-weight: 700;
+  padding: 0.5rem 1.2rem;
+  cursor: pointer;
+}
+#note-save-btn:active { opacity: 0.8; }
+
+#note-status { font-size: 0.78rem; color: #888; }
+#note-status.error { color: #c46; }
+
 /* ── Landscape adjustments ─────────────────────────────────────────── */
 
 @media (orientation: landscape) and (max-height: 480px) {

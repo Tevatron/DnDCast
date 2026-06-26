@@ -151,6 +151,56 @@ export async function createApp(config, opts = {}) {
     res.json({ path: `assets/${sub}/${req.file.originalname}` });
   });
 
+  // ── Ad-hoc notes ────────────────────────────────────────────────────
+  // Notes are tied to a campaign/adventure/scene and owned by an author. Until
+  // real user accounts exist (OAuth — see ROADMAP), there's no per-user identity,
+  // so every note is stamped with this placeholder owner and the feature is
+  // DM-only with DMs seeing all notes. `authorId` is in the schema now so the
+  // swap to real user ids later is a data migration, not a shape change.
+  const SUPERUSER_ID = 'dm-superuser';
+  const NOTE_SCOPES  = ['campaign', 'adventure', 'scene'];
+
+  app.get('/api/notes', requireDM, async (req, res) => {
+    const notes = await readJson(dataDir, 'notes.json');
+    res.json({ notes: Array.isArray(notes) ? notes : [] });
+  });
+
+  app.post('/api/notes', requireDM, async (req, res) => {
+    const { scope, scopeId, text } = req.body || {};
+    if (!NOTE_SCOPES.includes(scope) || !scopeId || !text || !text.trim()) {
+      return res.status(400).json({ error: 'scope, scopeId and text are required' });
+    }
+    const list = await readNotes(dataDir);
+    const now  = new Date().toISOString();
+    const note = { id: crypto.randomUUID(), scope, scopeId, authorId: SUPERUSER_ID,
+                   text: text.trim(), createdAt: now, updatedAt: now };
+    list.push(note);
+    await writeJson(dataDir, 'notes.json', list);
+    res.json({ note });
+  });
+
+  app.put('/api/notes/:id', requireDM, async (req, res) => {
+    const { text, scope, scopeId } = req.body || {};
+    const list = await readNotes(dataDir);
+    const note = list.find(n => n.id === req.params.id);
+    if (!note) return res.status(404).json({ error: 'Not found' });
+    if (typeof text === 'string') note.text = text.trim();
+    if (NOTE_SCOPES.includes(scope)) note.scope = scope;
+    if (scopeId) note.scopeId = scopeId;
+    note.updatedAt = new Date().toISOString();
+    await writeJson(dataDir, 'notes.json', list);
+    res.json({ note });
+  });
+
+  app.delete('/api/notes/:id', requireDM, async (req, res) => {
+    const list = await readNotes(dataDir);
+    const idx  = list.findIndex(n => n.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: 'Not found' });
+    list.splice(idx, 1);
+    await writeJson(dataDir, 'notes.json', list);
+    res.json({ ok: true });
+  });
+
   // Gate the editor page itself (it's otherwise served by express.static below)
   // so player-role users can't open the editing UI at all.
   app.get('/editor.html', requireDM, (req, res) => res.sendFile(join(PUBLIC_DIR, 'editor.html')));
@@ -303,6 +353,12 @@ export async function createApp(config, opts = {}) {
   }
 
   return { app, server, wss, resetWsState };
+}
+
+// Always returns an array (notes.json may not exist yet).
+async function readNotes(dir) {
+  const notes = await readJson(dir, 'notes.json');
+  return Array.isArray(notes) ? notes : [];
 }
 
 // ── JSON helpers ──────────────────────────────────────────────────────

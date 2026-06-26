@@ -145,6 +145,18 @@ const qsSave             = $('qs-save');
 const qsSaveOnly         = $('qs-save-only');
 const qsCloseBtn         = $('qs-close-btn');
 const qsCancel           = $('qs-cancel');
+const notebookBtn        = $('notebook-btn');
+const notebookBackdrop   = $('notebook-backdrop');
+const notebookDrawer     = $('notebook-drawer');
+const notebookCloseBtn   = $('notebook-close-btn');
+const notebookList       = $('notebook-list');
+const notebookEmpty      = $('notebook-empty');
+const notebookForm       = $('notebook-form');
+const noteScopeSelect    = $('note-scope-select');
+const noteText           = $('note-text');
+const noteSaveBtn        = $('note-save-btn');
+const noteCancelBtn      = $('note-cancel-btn');
+const noteStatus         = $('note-status');
 
 // ── Init / wiring ────────────────────────────────────────────────────
 function init() {
@@ -202,6 +214,13 @@ function init() {
   qsCancel.addEventListener('click',     closeQuickScene);
   qsForm.addEventListener('submit',      e => { e.preventDefault(); saveQuickScene(true); });
   qsSaveOnly.addEventListener('click',   () => saveQuickScene(false));
+
+  // Notebook (DM only)
+  notebookBtn.addEventListener('click',     openNotebook);
+  notebookCloseBtn.addEventListener('click', closeNotebook);
+  notebookBackdrop.addEventListener('click', closeNotebook);
+  notebookForm.addEventListener('submit',   e => { e.preventDefault(); saveNote(); });
+  noteCancelBtn.addEventListener('click',   resetNoteForm);
   qsImageBrowse.addEventListener('click', () => qsImageFile.click());
   qsAudioBrowse.addEventListener('click', () => qsAudioFile.click());
   qsImageFile.addEventListener('change', () => uploadInto(qsImageFile, qsImage));
@@ -231,6 +250,7 @@ function applyRoleUI() {
     dmOverlayBtn.hidden  = false;
     dmStageBtn.hidden    = false;
     drawerAddBtn.hidden  = false;   // author scenes mid-session
+    notebookBtn.hidden   = false;   // personal notes
     startSubtitle.textContent = 'DM Control';
     // DM uses the same local volume slider as everyone, but starts MUTED — the
     // cast tab is the room's sound, so the DM is silent until they raise it to
@@ -1119,6 +1139,154 @@ async function saveQuickScene(show) {
   if (show) { closeDrawer(); goToScene(targetIndex); }
   else if (qsEditingId && targetIndex === currentIndex) goToScene(currentIndex);
   else updateSceneListHighlight();
+}
+
+// ── Notebook (DM only) ───────────────────────────────────────────────
+// Personal ad-hoc notes tied to the current campaign/adventure/scene. Stored
+// server-side and loaded when the drawer opens (no live sync). Notes only show
+// for the context they were attached to.
+let notebookNotes = [];
+let editingNoteId = null;
+
+// The ids of the DM's current context, by scope. 'all'/missing → null (not a
+// valid scope to attach to).
+function currentContextIds() {
+  const scene = currentScenes[currentIndex];
+  return {
+    campaign:  activeCampaignId || null,
+    adventure: (activeAdventureId && activeAdventureId !== 'all') ? activeAdventureId : null,
+    scene:     scene ? scene.id : null,
+  };
+}
+
+async function openNotebook() {
+  closeOverflow();
+  notebookDrawer.hidden = false;
+  notebookBackdrop.hidden = false;
+  populateNoteScopes();
+  resetNoteForm();
+  await loadNotebook();
+}
+
+function closeNotebook() {
+  notebookDrawer.hidden = true;
+  notebookBackdrop.hidden = true;
+}
+
+// Offer only the scopes that exist in the current context (defaults to the first,
+// i.e. Campaign when present).
+function populateNoteScopes() {
+  const ctx = currentContextIds();
+  const labels = { campaign: 'Campaign', adventure: 'Adventure', scene: 'Scene' };
+  noteScopeSelect.innerHTML = '';
+  ['campaign', 'adventure', 'scene'].forEach(scope => {
+    if (!ctx[scope]) return;
+    const o = document.createElement('option');
+    o.value = scope;
+    o.textContent = labels[scope];
+    noteScopeSelect.appendChild(o);
+  });
+}
+
+async function loadNotebook() {
+  try {
+    const res = await fetch('/api/notes');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    notebookNotes = (await res.json()).notes || [];
+  } catch (e) {
+    setNoteStatus('Could not load notes: ' + e.message, true);
+    notebookNotes = [];
+  }
+  renderNotebookList();
+}
+
+function renderNotebookList() {
+  const ctx = currentContextIds();
+  const visible = notebookNotes.filter(n => n.scopeId && n.scopeId === ctx[n.scope]);
+  notebookList.innerHTML = '';
+  notebookEmpty.hidden = visible.length > 0;
+  visible.forEach(note => {
+    const li = document.createElement('li');
+    li.className = 'nb-item';
+
+    const body = document.createElement('div');
+    body.className = 'nb-item-body';
+    const tag = document.createElement('span');
+    tag.className = 'nb-tag';
+    tag.textContent = note.scope;
+    const text = document.createElement('div');
+    text.className = 'nb-text';
+    text.textContent = note.text;
+    body.append(tag, text);
+
+    const edit = document.createElement('button');
+    edit.className = 'nb-edit'; edit.title = 'Edit note'; edit.innerHTML = '&#x270E;';
+    edit.addEventListener('click', () => startEditNote(note));
+
+    const del = document.createElement('button');
+    del.className = 'nb-del'; del.title = 'Delete note'; del.innerHTML = '&#x2715;';
+    del.addEventListener('click', () => deleteNote(note.id));
+
+    li.append(body, edit, del);
+    notebookList.appendChild(li);
+  });
+}
+
+function startEditNote(note) {
+  editingNoteId = note.id;
+  noteText.value = note.text;
+  noteScopeSelect.value = note.scope;   // visible notes always match an in-context scope
+  noteSaveBtn.textContent = 'Update note';
+  noteCancelBtn.hidden = false;
+  noteText.focus();
+}
+
+function resetNoteForm() {
+  editingNoteId = null;
+  noteText.value = '';
+  noteSaveBtn.textContent = 'Save note';
+  noteCancelBtn.hidden = true;
+  setNoteStatus('', false);
+}
+
+async function saveNote() {
+  const text  = noteText.value.trim();
+  if (!text) return;
+  const scope = noteScopeSelect.value;
+  const scopeId = currentContextIds()[scope];
+  if (!scope || !scopeId) { setNoteStatus('Nothing here to attach a note to.', true); return; }
+
+  setNoteStatus('Saving…', false);
+  const opts = { headers: { 'Content-Type': 'application/json' } };
+  try {
+    const res = editingNoteId
+      ? await fetch('/api/notes/' + editingNoteId, { ...opts, method: 'PUT',  body: JSON.stringify({ text, scope, scopeId }) })
+      : await fetch('/api/notes',                   { ...opts, method: 'POST', body: JSON.stringify({ scope, scopeId, text }) });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+  } catch (e) {
+    setNoteStatus('Save failed: ' + e.message, true);
+    return;
+  }
+  resetNoteForm();
+  await loadNotebook();
+}
+
+async function deleteNote(id) {
+  if (!confirm('Delete this note?')) return;
+  try {
+    const res = await fetch('/api/notes/' + id, { method: 'DELETE' });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+  } catch (e) {
+    setNoteStatus('Delete failed: ' + e.message, true);
+    return;
+  }
+  if (editingNoteId === id) resetNoteForm();
+  await loadNotebook();
+}
+
+function setNoteStatus(msg, isError) {
+  noteStatus.textContent = msg;
+  noteStatus.className    = isError ? 'error' : '';
 }
 
 function uniqueSceneId(title) {
