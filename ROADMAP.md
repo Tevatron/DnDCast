@@ -94,74 +94,92 @@ straight into it, with rooms isolated from one another.
 - **Invite links:** DM creates a room → server returns
   `https://dnd-cast.com/player.html?room=<token>` (optionally a tidy `/r/<token>`
   that redirects). The token is the capability to *join* that room.
-- **Make tokens tamper-proof, not just secret:** sign them with an HMAC keyed by
-  the existing `config.sessionSecret` (`crypto` is already imported), so the
-  server can validate a room token without a lookup and optionally encode an
-  expiry. This is the "security piping in the existing stack" — no new
-  dependencies.
+- **The link grants player access (capability model).** Knowing a valid,
+  unexpired invite link is sufficient to join as a player — no separate player
+  password. This is the agreed model: simpler to share, and the expiry is what
+  bounds the risk.
+- **Make tokens tamper-proof AND short-lived:** sign them with an HMAC keyed by
+  the existing `config.sessionSecret` (`crypto` is already imported) and bake an
+  **expiry (~7 days)** into the signed payload. The server validates signature +
+  expiry without a lookup; an old leaked link simply stops working. This is the
+  "security piping in the existing stack" — no new dependencies. (DMs can
+  re-share a fresh link each week; later we can add explicit revoke.)
 - **Persist the room registry:** a `rooms.json` (same pattern as the content
   files) so rooms survive restarts, mirroring how `session-file-store` already
   persists sessions. Map: `roomId → { name, ownerLabel, createdAt, expiresAt }`.
 - **Authorization on the WS upgrade:** the upgrade handler already parses the
-  session and reads `?room=`. Extend it to (a) require a valid/known room token
-  and (b) keep enforcing the authenticated session. A bad/expired token →
-  refuse the upgrade, same as today's 401 path.
-- **Content scoping (interim):** keep JSON files but namespace per room
-  (`data/<roomId>/scenes.json`, …), or keep a shared library and let a room
-  select which adventures it exposes. Decision point — start shared, scope later.
+  session and reads `?room=`. Extend it to require a valid, unexpired room token
+  for the room being joined. A bad/expired token → refuse the upgrade, same as
+  today's 401 path. (The DM still authenticates as themselves; only *players*
+  ride in on the capability link.)
+- **Content scoping — heading toward DM-owned content.** The agreed end state is
+  that all content is owned by the DM (user) who created it, not global or
+  per-room. In Phase 1 (pre-accounts) that means scoping content to the room's
+  owner identity; once accounts exist (Phase 2/3) it becomes a real
+  `owner_user_id`. A room exposes a selection of its DM's content.
 
-**Decision point:** does knowing the invite token alone grant player access
-(capability model, drops the shared player password), or must players *also*
-authenticate? Recommended interim: signed token + the existing player password,
-so an leaked link can't be used by a complete stranger. This collapses into real
-per-user membership in Phase 3.
+### Phase 2 — A storage seam (build the seam, not the second backend yet)
 
-### Phase 2 — A database for rooms and (eventually) users
+**The valuable, low-cost move is the interface — not running two backends in
+lockstep.** What prevents a future big-bang rewrite is the *seam* plus a contract
+test suite, not a live second implementation. So we build the seam now, keep the
+file store as the only real backend, and defer the actual SQLite build until a
+concrete trigger arrives.
 
-**When:** as soon as we want rooms owned by *accounts*, membership lists, or more
-than wholesale-JSON content.
-
-- **Engine choice — start with SQLite (`better-sqlite3`), plan for Postgres.**
-  - *Why SQLite first:* the deployment is a single PM2 fork on one box. SQLite is
-    file-based (fits alongside today's JSON/sessions), zero-ops, synchronous and
-    fast for this scale, and trivially backed up. It removes a whole class of
-    "stand up and operate a DB server" work.
-  - *Why Postgres later:* the moment we run more than one instance (horizontal
-    scale, zero-downtime deploys) SQLite's single-writer model becomes the
-    bottleneck. Postgres (managed, e.g. Neon/Supabase/RDS) is the migration
-    target. Keep the data layer behind a thin repository module so the swap is
-    contained.
-- **Access layer:** a lightweight query builder / migrator with first-class
-  SQLite *and* Postgres support so the engine swap is a config change — Drizzle
-  or Knex. Avoid ORMs that lock us to one engine's quirks.
-- **Initial schema (sketch):**
+- **Introduce the `Store` interface now.** Define a repository module the rest of
+  the app talks to and move today's direct `readJson`/`writeJson` behind it.
+  Design its operations in **entity/intent terms** — `getContent(ownerId)`,
+  `saveContent(...)`, `getRoom(id)`, `createRoom(...)`, `getUser(...)`,
+  `addMember(...)` — i.e. *SQL-shaped*, not "read file X", so the seam won't need
+  reshaping when a DB backend lands. This is the high-value 80%, worth doing
+  regardless of whether SQLite ever ships.
+- **Keep `FileStore` as the only real implementation for now.** It stays the
+  default and what production runs. **Harden the data model (ownership, rooms,
+  security) entirely within the file store, behind the interface** — none of that
+  work requires SQL to be present.
+- **Validate the seam against SQL once, then set it down.** Do a single SQLite
+  *spike* to confirm the interface fits a real query/transaction model, but do
+  **not** commit to maintaining a second backend in lockstep. Lockstep dual
+  backends mean 2× cost on every change for a backend nobody runs yet, and risk an
+  abstraction designed before we've felt the SQL shape.
+- **Build `SqliteStore` for real when a trigger arrives** — accounts, multi-user,
+  or the data model has stabilized. At that point the interface + a parameterized
+  **contract test suite** (run against whichever backends exist) make adding it
+  safe and incremental, not a rewrite.
+- **Schema the interface should anticipate (so the seam is SQL-shaped):**
   - `users(id, email, display_name, created_at)`
   - `rooms(id, owner_user_id, name, invite_token, expires_at, created_at)`
   - `room_members(room_id, user_id, role)` — role ∈ {dm, player}
-  - Content: either `scenes/adventures/campaigns` tables keyed by an owning
-    scope, or a `content_blobs(scope_id, kind, json)` table as a low-friction
-    lift of today's files before fully normalizing.
-- **Migration path:** import the current JSON into the DB for the existing single
-  tenant as a one-off script; keep the JSON readers behind the repository
-  interface until the DB path is proven, then retire them.
+  - Content owned per user (`owner_user_id`); a `content_blobs(owner_id, kind,
+    json)` shape lifts today's files with minimal friction, normalizing later.
+- **Postgres is then just a third implementation, not a rewrite:** with the seam
+  in place and a query tool that targets both (Drizzle or Knex), moving to managed
+  Postgres (Neon/Supabase/RDS) for horizontal scale is adding a backend, not
+  re-plumbing the app.
 
 ### Phase 3 — Delegated auth (OAuth2 / OIDC), retire homegrown passwords
 
 **Goal:** stop managing password hashes; users sign in with an identity provider;
 email identity makes player invites real.
 
-- **Provider & library:** OIDC via Google to start (most D&D groups have Google
-  accounts). Use a maintained library rather than hand-rolling the flow —
-  **Auth.js (formerly NextAuth's core)**, **Lucia**, or **`openid-client`** with a
-  thin wrapper. Keep `express-session` for the session cookie; identity (the
-  `sub`/email) comes from the provider.
+- **Providers — Google + Discord.** Google first (nearly everyone has an
+  account), with **Discord** as the agreed second: it's the most natural fit for
+  a tabletop/gaming audience (groups already coordinate there) and arguably the
+  most-used "next" login for this crowd. The provider list is config-driven so
+  adding a third later (Apple/Microsoft) is trivial.
+- **Library:** use a maintained one rather than hand-rolling flows —
+  **Auth.js (NextAuth core)**, **Lucia**, or **`openid-client`** with a thin
+  wrapper. Note Discord is plain OAuth2 (not full OIDC), so prefer a library that
+  handles both OIDC and bare OAuth2 providers cleanly. Keep `express-session` for
+  the session cookie; identity (provider `sub` + email) maps to a `users` row.
 - **Roles after OAuth:** role is no longer a shared password — it's
   `room_members.role`. The room *owner* is the DM; invited accounts are players.
   The DM/player password split from today maps cleanly onto room membership.
 - **Invite flow, completed:** an invite link carries a signed room token; the
-  invitee signs in with Google; on first visit we create/lookup their `user`
-  row and insert a `room_members(room, user, 'player')` record. Now access is
-  per-account and revocable — a real upgrade over a shared secret.
+  invitee signs in with Google or Discord; on first visit we create/lookup their
+  `user` row and insert a `room_members(room, user, 'player')` record. Access is
+  now per-account and revocable — though the capability link from Phase 1 remains
+  a valid lighter-weight path for casual players who don't want an account.
 - **Transition:** run OAuth alongside the existing password login behind a flag,
   migrate the single existing DM to an account, then remove
   `passwordHash`/`playerPasswordHash`. `sameSite: 'strict'` cookies already cover
@@ -187,6 +205,8 @@ email identity makes player invites real.
 1. Ship the **near-term QoL** items (Part A 1–6) — independent, low-risk, immediate.
 2. **Phase 1 rooms + signed invite links** on the current JSON/session stack — the
    biggest product unlock without a DB.
-3. **Phase 2 SQLite** once rooms need real ownership/membership.
+3. **Phase 2 storage seam** — introduce the `Store` interface (SQL-shaped) and
+   harden the data model within the file store; spike SQLite to validate the seam
+   but defer building the second backend until a real trigger.
 4. **Phase 3 OAuth2** to retire passwords and make invites per-account.
 5. **Phase 4** only when scale/multi-instance actually demands it.
