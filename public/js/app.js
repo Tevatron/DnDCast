@@ -998,6 +998,7 @@ async function saveQuickScene() {
   let newIndex;
   const adventure = allAdventures.find(a => a.id === activeAdventureId);
   if (adventure) {
+    scene.privateTo = adventure.id;   // authored inside an adventure → private to it
     adventure.scenes = Array.isArray(adventure.scenes) ? adventure.scenes : [];
     const at = Math.min(Math.max(currentIndex + 1, 0), adventure.scenes.length);
     adventure.scenes.splice(at, 0, scene.id);
