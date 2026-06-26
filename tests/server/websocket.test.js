@@ -308,6 +308,30 @@ describe('Player-role sanitized view', () => {
     dm.close();
   });
 
+  it('sends each image with its own fit (object entries), falling back to scene fit', async () => {
+    const dmAgent = request.agent(ctx.app);
+    await login(dmAgent);
+    await dmAgent.post('/api/save').send({
+      scenes: [{ id: 'g', images: ['img/a.jpg', { src: 'img/b.jpg', fit: 'cover' }] }],
+      adventures: [{ id: 'adv', title: 'A', scenes: ['g'] }],
+    });
+
+    const player = await connect(ctx.port, await cookie(TEST_PLAYER_PASSWORD), 'fit-room');
+    const dm     = await connect(ctx.port, await cookie(),                    'fit-room');
+
+    async function viewFor(imageIndex) {
+      const received = waitForMessage(player);
+      dm.send(JSON.stringify({ activeAdventureId: 'adv', sceneIndex: 0, imageIndex, paused: false }));
+      return received;
+    }
+
+    expect(await viewFor(0)).toMatchObject({ image: 'img/a.jpg', fit: null });        // string entry → no fit
+    expect(await viewFor(1)).toMatchObject({ image: 'img/b.jpg', fit: 'cover' });      // per-image fit
+
+    player.close();
+    dm.close();
+  });
+
   it('tells players to wait when the DM has no scene selected', async () => {
     const player = await connect(ctx.port, await cookie(TEST_PLAYER_PASSWORD), 'wait-room');
     const dm     = await connect(ctx.port, await cookie(),                    'wait-room');

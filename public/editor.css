@@ -385,7 +385,13 @@ html, body {
   align-items: center;
   margin-bottom: 0.4rem;
 }
-.image-row input[type="text"] { flex: 1; }
+.image-row input[type="text"] { flex: 1; min-width: 0; }
+.image-row select {
+  width: auto;
+  flex: 0 0 auto;
+  font-size: 0.78rem;
+  padding: 0.3rem 0.35rem;
+}
 
 .btn-small {
   font-size: 0.78rem;

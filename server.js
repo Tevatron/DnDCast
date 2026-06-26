@@ -276,16 +276,20 @@ export async function createApp(config, opts = {}) {
     if (!scene) return { type: 'view', waiting: true };
     const adv   = adventures.find(a => a.id === state.activeAdventureId);
     const track = sceneAudio(scene, adv);
-    const imgs  = Array.isArray(scene.images) && scene.images.length
+    const raw   = Array.isArray(scene.images) && scene.images.length
       ? scene.images : (scene.image ? [scene.image] : []);
-    const imgIdx = Math.max(0, Math.min(state.imageIndex || 0, imgs.length - 1));
+    const imgIdx = Math.max(0, Math.min(state.imageIndex || 0, raw.length - 1));
+    const entry  = raw[imgIdx];
+    // Each image carries its own fit; fall back to the legacy scene-level fit.
+    const image  = entry == null ? null : (typeof entry === 'string' ? entry : entry.src ?? null);
+    const fit    = (entry && typeof entry === 'object' ? entry.fit : null) ?? scene.fit ?? null;
     // Volume/mute are intentionally omitted — players control their own loudness.
     return {
       type:      'view',
-      image:     imgs[imgIdx] ?? null,
+      image,
       audio:     track.audio,
       loopAudio: track.loopAudio ?? true,
-      fit:       scene.fit ?? null,
+      fit,
       paused:    !!state.paused,
       blackout:  !!state.blackout,
     };

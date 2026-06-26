@@ -86,21 +86,12 @@
             DM Script <span class="field-hint">(display location TBD)</span>
             <textarea name="dmScript" rows="4" placeholder="Read-aloud text or scene description..."></textarea>
           </label>
-          <div class="field-row">
-            <label class="field-label">
-              Private to
-              <select name="privateTo" id="scene-private-select">
-                <option value="">Public — available everywhere</option>
-              </select>
-            </label>
-            <label class="field-label">
-              Image fit
-              <select name="fit">
-                <option value="contain">Contain — full image, letterboxed</option>
-                <option value="cover">Cover — fill screen, crop edges</option>
-              </select>
-            </label>
-          </div>
+          <label class="field-label">
+            Private to
+            <select name="privateTo" id="scene-private-select">
+              <option value="">Public — available everywhere</option>
+            </select>
+          </label>
           <div class="form-actions">
             <button type="submit" class="btn-primary">Save Scene</button>
             <button type="button" id="delete-scene-btn" class="btn-danger">Delete</button>

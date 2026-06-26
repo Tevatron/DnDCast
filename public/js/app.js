@@ -487,9 +487,15 @@ function updateAdventureLabel() {
 // A scene can hold multiple images (scene.images); the DM steps through them,
 // then crosses to the next/previous scene. The image list falls back to the
 // single scene.image for backward compatibility.
+// Normalized image list: [{ src, fit }]. Each image carries its own fit; older
+// data (string entries, or a single scene.image with scene-level scene.fit) is
+// read transparently. Mirrored server-side in playerView.
 function sceneImages(scene) {
-  if (scene && Array.isArray(scene.images) && scene.images.length) return scene.images;
-  return scene && scene.image ? [scene.image] : [];
+  const raw = scene && Array.isArray(scene.images) && scene.images.length ? scene.images
+            : (scene && scene.image ? [scene.image] : []);
+  return raw.map(e => typeof e === 'string'
+    ? { src: e,       fit: scene.fit || null }
+    : { src: e.src,   fit: e.fit || scene.fit || null });
 }
 
 // imagePos: 'first' (default), 'last', or a numeric index — which image to show.
@@ -510,7 +516,8 @@ function goToScene(index, imagePos = 'first') {
   showCurrentImage(scene);
   // Warm the first image of the next scene for a snappy advance.
   const next = currentScenes[index + 1];
-  if (next && sceneImages(next)[0]) new Image().src = sceneImages(next)[0];
+  const nextFirst = next && sceneImages(next)[0];
+  if (nextFirst && nextFirst.src) new Image().src = nextFirst.src;
 
   titleOverlay.textContent = scene.title || '';
   notesContent.textContent = scene.notes || '(no notes for this scene)';
@@ -526,9 +533,11 @@ function goToScene(index, imagePos = 'first') {
 // Render the image at currentImageIndex and warm the next one within the scene.
 function showCurrentImage(scene) {
   const imgs = sceneImages(scene);
+  const entry = imgs[currentImageIndex] || {};
   const imgGen = ++imageGeneration;
-  loadSceneImage(imgs[currentImageIndex] || '', imgGen, scene.title, scene.fit);
-  if (imgs[currentImageIndex + 1]) new Image().src = imgs[currentImageIndex + 1];
+  loadSceneImage(entry.src || '', imgGen, scene.title, entry.fit);
+  const next = imgs[currentImageIndex + 1];
+  if (next && next.src) new Image().src = next.src;   // warm the next image in-scene
 }
 
 function updateCounter() {

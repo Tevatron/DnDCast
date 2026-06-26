@@ -89,7 +89,7 @@ function init() {
   sceneForm.addEventListener('submit', e => { e.preventDefault(); saveScene(); });
   deleteSceneBtn.addEventListener('click', deleteScene);
   sceneForm.querySelector('[name="silent"]').addEventListener('change', syncSilentState);
-  addImageBtn.addEventListener('click', () => { editingSceneImages.push(''); renderSceneImages(); });
+  addImageBtn.addEventListener('click', () => { editingSceneImages.push({ src: '', fit: 'contain' }); renderSceneImages(); });
 
   // Auto-slugify scene title → id
   const sceneTitle = sceneForm.querySelector('[name="title"]');
@@ -337,13 +337,11 @@ function openSceneEdit(idx) {
   const f = sceneForm;
   f.querySelector('[name="title"]').value    = scene.title    || '';
   f.querySelector('[name="id"]').value       = scene.id       || '';
-  editingSceneImages = Array.isArray(scene.images) && scene.images.length
-    ? [...scene.images] : (scene.image ? [scene.image] : []);
+  editingSceneImages = sceneImageEntries(scene);
   renderSceneImages();
   f.querySelector('[name="audio"]').value    = scene.audio    || '';
   f.querySelector('[name="notes"]').value    = scene.notes    || '';
   f.querySelector('[name="dmScript"]').value = scene.dmScript || '';
-  f.querySelector('[name="fit"]').value      = scene.fit === 'cover' ? 'cover' : 'contain';
   f.querySelector('[name="loopAudio"]').checked = scene.loopAudio !== false;
   f.querySelector('[name="silent"]').checked    = !!scene.silent;
   syncSilentState();
@@ -358,18 +356,28 @@ function sceneImageCount(scene) {
   return scene.image ? 1 : 0;
 }
 
-// Editable list of a scene's image paths (one row each), with upload + reorder.
+// Normalize a scene's images to editable { src, fit } entries (handles string
+// entries and a legacy single scene.image + scene-level scene.fit).
+function sceneImageEntries(scene) {
+  const raw = Array.isArray(scene.images) && scene.images.length ? scene.images
+            : (scene.image ? [scene.image] : []);
+  return raw.map(e => typeof e === 'string'
+    ? { src: e,            fit: scene.fit === 'cover' ? 'cover' : 'contain' }
+    : { src: e.src || '',  fit: e.fit  === 'cover' ? 'cover' : 'contain' });
+}
+
+// Editable list of a scene's images (one row each): path, upload, per-image fit, reorder.
 function renderSceneImages() {
   sceneImagesList.innerHTML = '';
-  editingSceneImages.forEach((src, i) => {
+  editingSceneImages.forEach((entry, i) => {
     const row = document.createElement('div');
     row.className = 'image-row';
 
     const input = document.createElement('input');
     input.type = 'text';
-    input.value = src;
+    input.value = entry.src;
     input.placeholder = 'assets/images/scene.jpg';
-    input.addEventListener('input', () => { editingSceneImages[i] = input.value; });
+    input.addEventListener('input', () => { editingSceneImages[i].src = input.value; });
 
     const browse = document.createElement('button');
     browse.type = 'button';
@@ -377,6 +385,13 @@ function renderSceneImages() {
     browse.textContent = 'Browse';
     if (!CAN_BROWSE) browse.classList.add('hidden');
     browse.addEventListener('click', () => browseImageInto(i));
+
+    const fitSel = document.createElement('select');
+    fitSel.className = 'image-fit-select';
+    fitSel.title = 'How this image fills the screen';
+    fitSel.innerHTML = '<option value="contain">Contain</option><option value="cover">Cover</option>';
+    fitSel.value = entry.fit === 'cover' ? 'cover' : 'contain';
+    fitSel.addEventListener('change', () => { editingSceneImages[i].fit = fitSel.value; });
 
     const up = document.createElement('button');
     up.type = 'button'; up.className = 'scene-order-btn'; up.textContent = '↑';
@@ -393,7 +408,7 @@ function renderSceneImages() {
     remove.title = 'Remove image';
     remove.addEventListener('click', () => { editingSceneImages.splice(i, 1); renderSceneImages(); });
 
-    row.append(input, browse, up, down, remove);
+    row.append(input, browse, fitSel, up, down, remove);
     sceneImagesList.appendChild(row);
   });
 }
@@ -417,7 +432,7 @@ async function browseImageInto(i) {
     const res = await fetch('/api/upload', { method: 'POST', body });
     if (!res.ok) throw new Error('Upload failed: HTTP ' + res.status);
     const { path } = await res.json();
-    editingSceneImages[i] = path;
+    editingSceneImages[i].src = path;
     renderSceneImages();
     showStatus(`Uploaded: ${file.name}`, 'success');
   } catch (e) {
@@ -444,22 +459,30 @@ function saveScene() {
   const duplicate = editorScenes.some((s, i) => s.id === id && i !== editingSceneIdx);
   if (duplicate) { showStatus('A scene with this ID already exists.', 'error'); return; }
 
-  const images = editingSceneImages.map(s => s.trim()).filter(Boolean);
+  // Normalize image entries: trim, drop blanks, default fit to 'contain'.
+  const imgs = editingSceneImages
+    .map(e => ({ src: (e.src || '').trim(), fit: e.fit === 'cover' ? 'cover' : 'contain' }))
+    .filter(e => e.src);
+
   const scene = {
     id,
     title:     title                                          || '',
     audio:     f.querySelector('[name="audio"]').value.trim()|| '',
     notes:     f.querySelector('[name="notes"]').value.trim()|| '',
     dmScript:  f.querySelector('[name="dmScript"]').value.trim() || '',
-    fit:       f.querySelector('[name="fit"]').value,
     loopAudio: f.querySelector('[name="loopAudio"]').checked,
     silent:    f.querySelector('[name="silent"]').checked,
     privateTo: f.querySelector('[name="privateTo"]').value || '',
   };
-  // Store a single image as `image`, multiple as `images` — keeps simple
-  // scenes clean while supporting multi-visual scenes.
-  if (images.length > 1)      scene.images = images;
-  else if (images.length === 1) scene.image = images[0];
+  // Persist images: a lone default-fit image stays the clean legacy shape
+  // (scene.image [+ scene.fit]); multiple become an array where each non-default
+  // fit is an { src, fit } object and default-fit images stay plain strings.
+  if (imgs.length === 1) {
+    scene.image = imgs[0].src;
+    if (imgs[0].fit === 'cover') scene.fit = 'cover';
+  } else if (imgs.length > 1) {
+    scene.images = imgs.map(e => e.fit === 'cover' ? { src: e.src, fit: 'cover' } : e.src);
+  }
 
   // Remove fields that match defaults to keep JSON clean
   if (!scene.audio)            delete scene.audio;
@@ -467,7 +490,6 @@ function saveScene() {
   if (!scene.dmScript)         delete scene.dmScript;
   if (!scene.silent)           delete scene.silent;
   if (!scene.privateTo)        delete scene.privateTo;
-  if (scene.fit === 'contain') delete scene.fit;  // contain is the default; omit it
 
   if (editingSceneIdx !== null) {
     const oldId = editorScenes[editingSceneIdx].id;
