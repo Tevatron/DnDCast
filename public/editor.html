@@ -46,14 +46,16 @@
           <button class="close-edit-btn" data-panel="scene-edit-panel">&#x2715;</button>
         </div>
         <form id="scene-form" autocomplete="off">
-          <label class="field-label">
-            Title
-            <input type="text" name="title" placeholder="Scene title" required>
-          </label>
-          <label class="field-label">
-            ID <span class="field-hint">(unique identifier, no spaces)</span>
-            <input type="text" name="id" placeholder="scene-id" required pattern="[a-z0-9\-_]+">
-          </label>
+          <div class="field-row">
+            <label class="field-label">
+              Title
+              <input type="text" name="title" placeholder="Scene title" required>
+            </label>
+            <label class="field-label">
+              ID <span class="field-hint">(no spaces)</span>
+              <input type="text" name="id" placeholder="scene-id" required pattern="[a-z0-9\-_]+">
+            </label>
+          </div>
           <div class="field-label">
             Images <span class="field-hint">(one or more, shown in order — DM steps through them; blank = text placeholder)</span>
             <div id="scene-images-list"></div>
@@ -66,10 +68,16 @@
               <button type="button" class="browse-btn" data-field="audio" data-type="audio">Browse</button>
             </div>
           </div>
-          <label class="checkbox-label">
-            <input type="checkbox" name="silent">
-            No music — silence this scene (ignore the adventure soundtrack)
-          </label>
+          <div class="checkbox-row">
+            <label class="checkbox-label">
+              <input type="checkbox" name="loopAudio" checked>
+              Loop audio
+            </label>
+            <label class="checkbox-label">
+              <input type="checkbox" name="silent">
+              No music (ignore soundtrack)
+            </label>
+          </div>
           <label class="field-label">
             DM Notes <span class="field-hint">(visible in the control panel)</span>
             <textarea name="notes" rows="3" placeholder="Private notes for the DM..."></textarea>
@@ -78,23 +86,21 @@
             DM Script <span class="field-hint">(display location TBD)</span>
             <textarea name="dmScript" rows="4" placeholder="Read-aloud text or scene description..."></textarea>
           </label>
-          <label class="field-label">
-            Private to <span class="field-hint">(hidden from "all scenes" &amp; other owners' pickers)</span>
-            <select name="privateTo" id="scene-private-select">
-              <option value="">Public — available everywhere</option>
-            </select>
-          </label>
-          <label class="field-label">
-            Image fit
-            <select name="fit">
-              <option value="contain">Contain — show full image, letterboxed (default)</option>
-              <option value="cover">Cover — fill screen, crop edges if needed</option>
-            </select>
-          </label>
-          <label class="checkbox-label">
-            <input type="checkbox" name="loopAudio" checked>
-            Loop audio
-          </label>
+          <div class="field-row">
+            <label class="field-label">
+              Private to <span class="field-hint">(hidden from "all scenes" &amp; other pickers)</span>
+              <select name="privateTo" id="scene-private-select">
+                <option value="">Public — available everywhere</option>
+              </select>
+            </label>
+            <label class="field-label">
+              Image fit
+              <select name="fit">
+                <option value="contain">Contain — full image, letterboxed</option>
+                <option value="cover">Cover — fill screen, crop edges</option>
+              </select>
+            </label>
+          </div>
           <div class="form-actions">
             <button type="submit" class="btn-primary">Save Scene</button>
             <button type="button" id="delete-scene-btn" class="btn-danger">Delete</button>
@@ -120,14 +126,16 @@
           <button class="close-edit-btn" data-panel="adventure-edit-panel">&#x2715;</button>
         </div>
         <form id="adventure-form" autocomplete="off">
-          <label class="field-label">
-            Title
-            <input type="text" name="title" placeholder="Adventure title" required>
-          </label>
-          <label class="field-label">
-            ID <span class="field-hint">(unique identifier)</span>
-            <input type="text" name="id" placeholder="adventure-id" required pattern="[a-z0-9\-_]+">
-          </label>
+          <div class="field-row">
+            <label class="field-label">
+              Title
+              <input type="text" name="title" placeholder="Adventure title" required>
+            </label>
+            <label class="field-label">
+              ID <span class="field-hint">(no spaces)</span>
+              <input type="text" name="id" placeholder="adventure-id" required pattern="[a-z0-9\-_]+">
+            </label>
+          </div>
           <label class="field-label">
             Campaign
             <select name="campaignId" id="adventure-campaign-select">
@@ -178,14 +186,16 @@
           <button class="close-edit-btn" data-panel="campaign-edit-panel">&#x2715;</button>
         </div>
         <form id="campaign-form" autocomplete="off">
-          <label class="field-label">
-            Title
-            <input type="text" name="title" placeholder="Campaign title" required>
-          </label>
-          <label class="field-label">
-            ID <span class="field-hint">(unique identifier)</span>
-            <input type="text" name="id" placeholder="campaign-id" required pattern="[a-z0-9\-_]+">
-          </label>
+          <div class="field-row">
+            <label class="field-label">
+              Title
+              <input type="text" name="title" placeholder="Campaign title" required>
+            </label>
+            <label class="field-label">
+              ID <span class="field-hint">(no spaces)</span>
+              <input type="text" name="id" placeholder="campaign-id" required pattern="[a-z0-9\-_]+">
+            </label>
+          </div>
           <label class="field-label">
             Description <span class="field-hint">(shown in the adventure picker)</span>
             <textarea name="description" rows="2" placeholder="Short description..."></textarea>

@@ -295,6 +295,27 @@ html, body {
   font-weight: normal;
 }
 
+/* Two fields side by side to use horizontal space (stacks on narrow screens). */
+.field-row {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+.field-row > .field-label { flex: 1; min-width: 0; }
+
+/* Checkboxes grouped on one line. */
+.checkbox-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.5rem;
+  margin-bottom: 1rem;
+}
+.checkbox-row .checkbox-label { margin-bottom: 0; }
+
+@media (max-width: 600px) {
+  .field-row { flex-direction: column; gap: 0; }
+}
+
 .field-label input[type="text"],
 .field-label input[type="file"],
 .field-label select,
