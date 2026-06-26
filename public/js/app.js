@@ -109,6 +109,7 @@ const overflowWrap       = $('overflow-wrap');
 const overflowBtn        = $('overflow-btn');
 const overflowPanel      = $('overflow-panel');
 const logoutBtn          = $('logout-btn');
+const homeNavBtn         = $('home-nav-btn');
 const homeLogoutBtn      = $('home-logout-btn');
 const sceneCounter       = $('scene-counter');
 const prevBtn            = $('prev-btn');
@@ -188,6 +189,7 @@ function init() {
   const logout = () => fetch('/api/logout', { method: 'POST' }).then(() => { location.href = '/login'; });
   logoutBtn.addEventListener('click',     logout);
   homeLogoutBtn.addEventListener('click', logout);
+  homeNavBtn.addEventListener('click',    () => { location.href = 'index.html'; });
   volumeSlider.addEventListener('input',  onVolumeChange);
   muteBtn.addEventListener('click',       e => { e.preventDefault(); toggleMute(); });
 
@@ -266,7 +268,9 @@ function applyRoleUI() {
     titleBtn.hidden           = true;
     presentBtn.hidden         = true;
     presentDot.hidden         = true;
-    overflowBtn.hidden        = true;   // overflow is empty in cast mode
+    // Overflow stays for the Home link; hide Log out (the cast shares the DM's
+    // session, so logging out here would sign the DM out too).
+    logoutBtn.hidden          = true;
   }
 }
 
