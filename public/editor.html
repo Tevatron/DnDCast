@@ -201,6 +201,14 @@
 
   </main>
 
+  <!-- Scene edit modal — hosts the existing scene editor panel when a scene is
+       opened from an adventure's scene list, so you can edit it without leaving
+       the adventure. The panel is moved in here and restored on close. -->
+  <div id="scene-modal" hidden>
+    <div class="modal-backdrop" id="scene-modal-backdrop"></div>
+    <div class="modal-box scene-modal-box" id="scene-modal-body"></div>
+  </div>
+
   <script type="module" src="editor.js"></script>
 </body>
 </html>
