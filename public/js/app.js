@@ -151,7 +151,18 @@ const notebookDrawer     = $('notebook-drawer');
 const notebookCloseBtn   = $('notebook-close-btn');
 const notebookList       = $('notebook-list');
 const notebookEmpty      = $('notebook-empty');
-const notebookForm       = $('notebook-form');
+const noteNewBtn         = $('note-new-btn');
+const noteModal          = $('note-modal');
+const noteView           = $('note-view');
+const noteViewTag        = $('note-view-tag');
+const noteViewTitle      = $('note-view-title');
+const noteViewBody       = $('note-view-body');
+const noteViewClose      = $('note-view-close');
+const noteEditBtn        = $('note-edit-btn');
+const noteDeleteBtn      = $('note-delete-btn');
+const noteEditForm       = $('note-edit-form');
+const noteEditHeading    = $('note-edit-heading');
+const noteEditClose      = $('note-edit-close');
 const noteScopeSelect    = $('note-scope-select');
 const noteTitle          = $('note-title');
 const noteText           = $('note-text');
@@ -217,11 +228,16 @@ function init() {
   qsSaveOnly.addEventListener('click',   () => saveQuickScene(false));
 
   // Notebook (DM only)
-  notebookBtn.addEventListener('click',     openNotebook);
+  notebookBtn.addEventListener('click',      openNotebook);
   notebookCloseBtn.addEventListener('click', closeNotebook);
   notebookBackdrop.addEventListener('click', closeNotebook);
-  notebookForm.addEventListener('submit',   e => { e.preventDefault(); saveNote(); });
-  noteCancelBtn.addEventListener('click',   resetNoteForm);
+  noteNewBtn.addEventListener('click',       () => openNoteEditor(null));
+  noteEditForm.addEventListener('submit',    e => { e.preventDefault(); saveNote(); });
+  noteCancelBtn.addEventListener('click',    closeNoteModal);
+  noteEditClose.addEventListener('click',    closeNoteModal);
+  noteViewClose.addEventListener('click',    closeNoteModal);
+  noteEditBtn.addEventListener('click',      () => { if (viewingNote) openNoteEditor(viewingNote); });
+  noteDeleteBtn.addEventListener('click',    () => { if (viewingNote) deleteNote(viewingNote.id); });
   qsImageBrowse.addEventListener('click', () => qsImageFile.click());
   qsAudioBrowse.addEventListener('click', () => qsAudioFile.click());
   qsImageFile.addEventListener('change', () => uploadInto(qsImageFile, qsImage));
@@ -1147,7 +1163,8 @@ async function saveQuickScene(show) {
 // server-side and loaded when the drawer opens (no live sync). Notes only show
 // for the context they were attached to.
 let notebookNotes = [];
-let editingNoteId = null;
+let editingNoteId = null;   // id being edited in the modal, or null when creating
+let viewingNote   = null;   // note currently open in the read-only viewer
 
 // The ids of the DM's current context, by scope. 'all'/missing → null (not a
 // valid scope to attach to).
@@ -1164,8 +1181,6 @@ async function openNotebook() {
   closeOverflow();
   notebookDrawer.hidden = false;
   notebookBackdrop.hidden = false;
-  populateNoteScopes();
-  resetNoteForm();
   await loadNotebook();
 }
 
@@ -1213,9 +1228,8 @@ function renderNotebookList() {
   visible.forEach(note => {
     const li = document.createElement('li');
     li.className = 'nb-item';
+    li.setAttribute('role', 'button');
 
-    const body = document.createElement('div');
-    body.className = 'nb-item-body';                 // single line: tag · title · preview
     const tag = document.createElement('span');
     tag.className = 'nb-tag';
     tag.textContent = note.scope;
@@ -1225,38 +1239,43 @@ function renderNotebookList() {
     const preview = document.createElement('span');
     preview.className = 'nb-preview';                // truncated to one line via CSS
     preview.textContent = note.body || note.text || '';
-    body.append(tag, title, preview);
 
-    const edit = document.createElement('button');
-    edit.className = 'nb-edit'; edit.title = 'Edit note'; edit.innerHTML = '&#x270E;';
-    edit.addEventListener('click', () => startEditNote(note));
-
-    const del = document.createElement('button');
-    del.className = 'nb-del'; del.title = 'Delete note'; del.innerHTML = '&#x2715;';
-    del.addEventListener('click', () => deleteNote(note.id));
-
-    li.append(body, edit, del);
+    li.append(tag, title, preview);
+    li.addEventListener('click', () => openNoteViewer(note));   // open read-only viewer
     notebookList.appendChild(li);
   });
 }
 
-function startEditNote(note) {
-  editingNoteId = note.id;
-  noteTitle.value = note.title || '';
-  noteText.value  = note.body || note.text || '';
-  noteScopeSelect.value = note.scope;   // visible notes always match an in-context scope
-  noteSaveBtn.textContent = 'Update note';
-  noteCancelBtn.hidden = false;
+// Read-only viewer for an existing note (with Edit/Delete actions).
+function openNoteViewer(note) {
+  viewingNote = note;
+  noteViewTag.textContent   = note.scope;
+  noteViewTitle.textContent = note.title || '(untitled)';
+  noteViewBody.textContent  = note.body || note.text || '';
+  noteView.hidden     = false;
+  noteEditForm.hidden = true;
+  noteModal.hidden    = false;
+}
+
+// Create (note=null) or edit an existing note in the modal form.
+function openNoteEditor(note) {
+  editingNoteId = note ? note.id : null;
+  noteEditHeading.textContent = note ? 'Edit note' : 'New note';
+  populateNoteScopes();
+  noteTitle.value = note ? (note.title || '') : '';
+  noteText.value  = note ? (note.body || note.text || '') : '';
+  if (note) noteScopeSelect.value = note.scope;   // its scope is in the current context
+  setNoteStatus('', false);
+  noteView.hidden     = true;
+  noteEditForm.hidden = false;
+  noteModal.hidden    = false;
   noteTitle.focus();
 }
 
-function resetNoteForm() {
+function closeNoteModal() {
+  noteModal.hidden = true;
   editingNoteId = null;
-  noteTitle.value = '';
-  noteText.value = '';
-  noteSaveBtn.textContent = 'Save note';
-  noteCancelBtn.hidden = true;
-  setNoteStatus('', false);
+  viewingNote = null;
 }
 
 async function saveNote() {
@@ -1278,7 +1297,7 @@ async function saveNote() {
     setNoteStatus('Save failed: ' + e.message, true);
     return;
   }
-  resetNoteForm();
+  closeNoteModal();
   await loadNotebook();
 }
 
@@ -1291,7 +1310,7 @@ async function deleteNote(id) {
     setNoteStatus('Delete failed: ' + e.message, true);
     return;
   }
-  if (editingNoteId === id) resetNoteForm();
+  closeNoteModal();
   await loadNotebook();
 }
 

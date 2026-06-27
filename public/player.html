@@ -157,22 +157,49 @@
   <div id="notebook-drawer" hidden>
     <div class="nb-header">
       <span>Notebook</span>
-      <button id="notebook-close-btn" title="Close">&#x2715;</button>
+      <div class="nb-header-actions">
+        <button id="note-new-btn" class="nb-new-btn">+ New note</button>
+        <button id="notebook-close-btn" title="Close">&#x2715;</button>
+      </div>
     </div>
     <ul id="notebook-list"></ul>
     <div id="notebook-empty" class="nb-empty" hidden>No notes for the current campaign, adventure, or scene.</div>
-    <form id="notebook-form" autocomplete="off">
-      <label class="nb-scope-label">For
-        <select id="note-scope-select"></select>
-      </label>
-      <input type="text" id="note-title" placeholder="Title">
-      <textarea id="note-text" rows="3" placeholder="Write a note…"></textarea>
-      <div class="nb-actions">
-        <button type="submit" id="note-save-btn">Save note</button>
-        <button type="button" id="note-cancel-btn" class="text-btn" hidden>Cancel</button>
-        <span id="note-status"></span>
+  </div>
+
+  <!-- Note modal: read-only viewer + create/edit form (DM only) -->
+  <div id="note-modal" hidden>
+    <div id="note-modal-box">
+      <!-- Read-only view -->
+      <div id="note-view">
+        <div class="note-modal-head">
+          <span id="note-view-tag" class="nb-tag"></span>
+          <button id="note-view-close" type="button" class="nb-modal-close" title="Close">&#x2715;</button>
+        </div>
+        <h2 id="note-view-title"></h2>
+        <div id="note-view-body"></div>
+        <div class="note-modal-actions">
+          <button type="button" id="note-edit-btn" class="nb-primary">Edit</button>
+          <button type="button" id="note-delete-btn" class="nb-danger">Delete</button>
+        </div>
       </div>
-    </form>
+      <!-- Create / edit form -->
+      <form id="note-edit-form" autocomplete="off" hidden>
+        <div class="note-modal-head">
+          <span id="note-edit-heading" class="picker-heading">New note</span>
+          <button id="note-edit-close" type="button" class="nb-modal-close" title="Cancel">&#x2715;</button>
+        </div>
+        <label class="nb-scope-label">For
+          <select id="note-scope-select"></select>
+        </label>
+        <input type="text" id="note-title" placeholder="Title">
+        <textarea id="note-text" rows="5" placeholder="Write a note…"></textarea>
+        <div class="note-modal-actions">
+          <button type="submit" id="note-save-btn" class="nb-primary">Save note</button>
+          <button type="button" id="note-cancel-btn" class="text-btn">Cancel</button>
+          <span id="note-status"></span>
+        </div>
+      </form>
+    </div>
   </div>
 
   <!-- ── Quick add-scene modal (DM role only) ──────────────────── -->
