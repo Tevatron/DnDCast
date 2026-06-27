@@ -5,6 +5,7 @@ config.json
 data/scenes.json
 data/adventures.json
 data/campaigns.json
+data/notes.json
 
 # ── Media assets (large binary files, manage outside git) ──────────────
 assets/images/*

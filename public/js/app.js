@@ -153,6 +153,7 @@ const notebookList       = $('notebook-list');
 const notebookEmpty      = $('notebook-empty');
 const notebookForm       = $('notebook-form');
 const noteScopeSelect    = $('note-scope-select');
+const noteTitle          = $('note-title');
 const noteText           = $('note-text');
 const noteSaveBtn        = $('note-save-btn');
 const noteCancelBtn      = $('note-cancel-btn');
@@ -1202,7 +1203,11 @@ async function loadNotebook() {
 
 function renderNotebookList() {
   const ctx = currentContextIds();
-  const visible = notebookNotes.filter(n => n.scopeId && n.scopeId === ctx[n.scope]);
+  const rank = { scene: 0, adventure: 1, campaign: 2 };   // scene → adventure → campaign
+  const visible = notebookNotes
+    .filter(n => n.scopeId && n.scopeId === ctx[n.scope])
+    .sort((a, b) => (rank[a.scope] - rank[b.scope]) || (b.updatedAt || '').localeCompare(a.updatedAt || ''));
+
   notebookList.innerHTML = '';
   notebookEmpty.hidden = visible.length > 0;
   visible.forEach(note => {
@@ -1210,14 +1215,17 @@ function renderNotebookList() {
     li.className = 'nb-item';
 
     const body = document.createElement('div');
-    body.className = 'nb-item-body';
+    body.className = 'nb-item-body';                 // single line: tag · title · preview
     const tag = document.createElement('span');
     tag.className = 'nb-tag';
     tag.textContent = note.scope;
-    const text = document.createElement('div');
-    text.className = 'nb-text';
-    text.textContent = note.text;
-    body.append(tag, text);
+    const title = document.createElement('span');
+    title.className = 'nb-title';
+    title.textContent = note.title || '(untitled)';
+    const preview = document.createElement('span');
+    preview.className = 'nb-preview';                // truncated to one line via CSS
+    preview.textContent = note.body || note.text || '';
+    body.append(tag, title, preview);
 
     const edit = document.createElement('button');
     edit.className = 'nb-edit'; edit.title = 'Edit note'; edit.innerHTML = '&#x270E;';
@@ -1234,15 +1242,17 @@ function renderNotebookList() {
 
 function startEditNote(note) {
   editingNoteId = note.id;
-  noteText.value = note.text;
+  noteTitle.value = note.title || '';
+  noteText.value  = note.body || note.text || '';
   noteScopeSelect.value = note.scope;   // visible notes always match an in-context scope
   noteSaveBtn.textContent = 'Update note';
   noteCancelBtn.hidden = false;
-  noteText.focus();
+  noteTitle.focus();
 }
 
 function resetNoteForm() {
   editingNoteId = null;
+  noteTitle.value = '';
   noteText.value = '';
   noteSaveBtn.textContent = 'Save note';
   noteCancelBtn.hidden = true;
@@ -1250,8 +1260,9 @@ function resetNoteForm() {
 }
 
 async function saveNote() {
-  const text  = noteText.value.trim();
-  if (!text) return;
+  const title = noteTitle.value.trim();
+  const bodyText = noteText.value.trim();
+  if (!bodyText) { setNoteStatus('A note needs a body.', true); return; }
   const scope = noteScopeSelect.value;
   const scopeId = currentContextIds()[scope];
   if (!scope || !scopeId) { setNoteStatus('Nothing here to attach a note to.', true); return; }
@@ -1260,8 +1271,8 @@ async function saveNote() {
   const opts = { headers: { 'Content-Type': 'application/json' } };
   try {
     const res = editingNoteId
-      ? await fetch('/api/notes/' + editingNoteId, { ...opts, method: 'PUT',  body: JSON.stringify({ text, scope, scopeId }) })
-      : await fetch('/api/notes',                   { ...opts, method: 'POST', body: JSON.stringify({ scope, scopeId, text }) });
+      ? await fetch('/api/notes/' + editingNoteId, { ...opts, method: 'PUT',  body: JSON.stringify({ title, body: bodyText, scope, scopeId }) })
+      : await fetch('/api/notes',                   { ...opts, method: 'POST', body: JSON.stringify({ scope, scopeId, title, body: bodyText }) });
     if (!res.ok) throw new Error('HTTP ' + res.status);
   } catch (e) {
     setNoteStatus('Save failed: ' + e.message, true);

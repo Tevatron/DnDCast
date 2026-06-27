@@ -103,6 +103,7 @@
       <button id="play-pause-btn"      title="Pause / Resume">&#x25B6;</button>
       <button id="next-btn"            title="Next scene (&#x2192; or Space)">&#x23ED;</button>
       <button id="scenes-btn"          title="Scene list">&#x2630;</button>
+      <button id="notebook-btn"        title="Notebook (your notes)" hidden>&#x1F4D3;</button>
       <label id="vol-label" title="Volume">
         <span id="mute-btn" role="button" title="Mute / unmute" style="cursor:pointer">&#x1F50A;</span>
         <input type="range" id="volume-slider" min="0" max="1" step="0.05" value="1">
@@ -116,7 +117,6 @@
           <button id="present-btn"        title="Presentation mode (P)">&#x25A1;</button>
           <button id="dm-overlay-btn"     title="Toggle notes overlay (N)" hidden>&#x1F4D6;</button>
           <button id="dm-stage-btn"       title="Stage mode — suspend cast updates (Z)" hidden>&#x2298;</button>
-          <button id="notebook-btn"        title="Notebook — your campaign/adventure/scene notes" hidden>&#x1F4D3;</button>
           <button id="home-nav-btn"        title="Back to home page">&#x2302;</button>
           <button id="logout-btn"          title="Log out">&#x23FB;</button>
         </div>
@@ -165,6 +165,7 @@
       <label class="nb-scope-label">For
         <select id="note-scope-select"></select>
       </label>
+      <input type="text" id="note-title" placeholder="Title">
       <textarea id="note-text" rows="3" placeholder="Write a note…"></textarea>
       <div class="nb-actions">
         <button type="submit" id="note-save-btn">Save note</button>

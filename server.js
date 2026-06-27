@@ -166,25 +166,26 @@ export async function createApp(config, opts = {}) {
   });
 
   app.post('/api/notes', requireDM, async (req, res) => {
-    const { scope, scopeId, text } = req.body || {};
-    if (!NOTE_SCOPES.includes(scope) || !scopeId || !text || !text.trim()) {
-      return res.status(400).json({ error: 'scope, scopeId and text are required' });
+    const { scope, scopeId, title, body } = req.body || {};
+    if (!NOTE_SCOPES.includes(scope) || !scopeId || !body || !body.trim()) {
+      return res.status(400).json({ error: 'scope, scopeId and body are required' });
     }
     const list = await readNotes(dataDir);
     const now  = new Date().toISOString();
     const note = { id: crypto.randomUUID(), scope, scopeId, authorId: SUPERUSER_ID,
-                   text: text.trim(), createdAt: now, updatedAt: now };
+                   title: (title || '').trim(), body: body.trim(), createdAt: now, updatedAt: now };
     list.push(note);
     await writeJson(dataDir, 'notes.json', list);
     res.json({ note });
   });
 
   app.put('/api/notes/:id', requireDM, async (req, res) => {
-    const { text, scope, scopeId } = req.body || {};
+    const { title, body, scope, scopeId } = req.body || {};
     const list = await readNotes(dataDir);
     const note = list.find(n => n.id === req.params.id);
     if (!note) return res.status(404).json({ error: 'Not found' });
-    if (typeof text === 'string') note.text = text.trim();
+    if (typeof title === 'string') note.title = title.trim();
+    if (typeof body  === 'string') note.body  = body.trim();
     if (NOTE_SCOPES.includes(scope)) note.scope = scope;
     if (scopeId) note.scopeId = scopeId;
     note.updatedAt = new Date().toISOString();

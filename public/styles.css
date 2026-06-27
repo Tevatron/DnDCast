@@ -1028,16 +1028,25 @@ html, body {
 
 .nb-item {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   gap: 0.5rem;
-  padding: 0.7rem 1rem;
+  padding: 0.55rem 1rem;
   border-bottom: 1px solid #171717;
 }
 
-.nb-item-body { flex: 1; min-width: 0; }
+/* One line only: tag · title · truncated preview. */
+.nb-item-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  overflow: hidden;
+  white-space: nowrap;
+}
 
 .nb-tag {
-  display: inline-block;
+  flex-shrink: 0;
   font-size: 0.62rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
@@ -1045,10 +1054,10 @@ html, body {
   border: 1px solid rgba(201, 168, 76, 0.3);
   border-radius: 3px;
   padding: 1px 5px;
-  margin-bottom: 0.3rem;
 }
 
-.nb-text { color: #ddd; font-size: 0.9rem; line-height: 1.45; white-space: pre-wrap; }
+.nb-title { flex-shrink: 0; max-width: 45%; overflow: hidden; text-overflow: ellipsis; color: #eee; font-weight: 600; font-size: 0.88rem; }
+.nb-preview { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; color: #888; font-size: 0.85rem; }
 
 .nb-edit, .nb-del {
   background: none;
@@ -1099,6 +1108,7 @@ html, body {
   padding: 4px 8px;
 }
 
+#note-title,
 #note-text {
   background: #0c0c0c;
   border: 1px solid #2a2a2a;
@@ -1107,9 +1117,9 @@ html, body {
   font-size: 0.9rem;
   font-family: inherit;
   padding: 8px 10px;
-  resize: vertical;
 }
-#note-text:focus, #note-scope-select:focus { outline: none; border-color: #555; }
+#note-text { resize: vertical; }
+#note-title:focus, #note-text:focus, #note-scope-select:focus { outline: none; border-color: #555; }
 
 .nb-actions { display: flex; align-items: center; gap: 1rem; }
 
