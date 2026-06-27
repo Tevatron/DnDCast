@@ -298,12 +298,17 @@ export async function createApp(config, opts = {}) {
     return contentCache;
   }
 
-  // Mirror of the client's sceneAudio (app.js): scene audio with adventure
-  // soundtrack fallback. scene.silent overrides the soundtrack with silence.
-  function sceneAudio(scene, adventure) {
+  // Mirror of the client (app.js): a scene's own track, else the adventure
+  // soundtrack playlist, else silence. scene.silent forces silence.
+  function soundtrackOf(adventure) {
+    const s = adventure && adventure.soundtrack;
+    return Array.isArray(s) ? s.filter(Boolean) : (s ? [s] : []);
+  }
+  function sceneTrack(scene, adventure) {
     if (scene.silent) return { audio: null };
     if (scene.audio)  return { audio: scene.audio, loopAudio: scene.loopAudio !== false };
-    if (adventure && adventure.soundtrack) return { audio: adventure.soundtrack, loopAudio: true };
+    const list = soundtrackOf(adventure);
+    if (list.length) return { playlist: list };
     return { audio: null };
   }
 
@@ -326,7 +331,7 @@ export async function createApp(config, opts = {}) {
     const scene = state.sceneIndex >= 0 ? list[state.sceneIndex] : null;
     if (!scene) return { type: 'view', waiting: true };
     const adv   = adventures.find(a => a.id === state.activeAdventureId);
-    const track = sceneAudio(scene, adv);
+    const track = sceneTrack(scene, adv);
     const raw   = Array.isArray(scene.images) && scene.images.length
       ? scene.images : (scene.image ? [scene.image] : []);
     const imgIdx = Math.max(0, Math.min(state.imageIndex || 0, raw.length - 1));
@@ -335,15 +340,11 @@ export async function createApp(config, opts = {}) {
     const image  = entry == null ? null : (typeof entry === 'string' ? entry : entry.src ?? null);
     const fit    = (entry && typeof entry === 'object' ? entry.fit : null) ?? scene.fit ?? null;
     // Volume/mute are intentionally omitted — players control their own loudness.
-    return {
-      type:      'view',
-      image,
-      audio:     track.audio,
-      loopAudio: track.loopAudio ?? true,
-      fit,
-      paused:    !!state.paused,
-      blackout:  !!state.blackout,
-    };
+    const view = { type: 'view', image, fit, paused: !!state.paused, blackout: !!state.blackout };
+    // A soundtrack playlist, or the scene's own single track.
+    if (track.playlist) view.playlist = track.playlist;
+    else { view.audio = track.audio; view.loopAudio = track.loopAudio ?? true; }
+    return view;
   }
 
   function resetWsState() {

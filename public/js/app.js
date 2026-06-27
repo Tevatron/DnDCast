@@ -33,6 +33,14 @@ const isRestricted = sessionRole === 'player';
 document.body.dataset.role = role;
 let playerImageSrc = null;   // restricted-player render diffing
 let playerAudioSrc = null;
+let playerPlaylistKey = null; // restricted-player soundtrack-playlist diffing
+
+// Adventure soundtrack playlist (continuous background music across scenes
+// that have no audio of their own). Shared by DM/cast (resolved from data) and
+// the restricted player (driven by the server's view.playlist).
+let soundtrackList    = [];
+let soundtrackIndex   = 0;
+let playingSoundtrack = false;
 
 // ── State ────────────────────────────────────────────────────────────
 let allScenes     = [];
@@ -179,6 +187,7 @@ function init() {
   audio.onStateChange = updatePlayPauseBtn;     // button only; broadcasts are explicit
   audio.onError = (src, blocked) =>
     showError(blocked ? 'Tap ▶ to start audio (autoplay blocked).' : 'Audio not found: ' + src);
+  audio.onEnded = onAudioEnded;                 // advance the soundtrack playlist
   sceneDisplay.style.backgroundSize = CONFIG.objectFit;
   applyPresentationMode();
   applyRoleUI();
@@ -348,6 +357,7 @@ function playSolo() {
 function goHome() {
   if (isDM) sync.post({ stop: true });         // tell the Player to go dark
   audio.stopAll();
+  resetSoundtrack();
   sessionStarted = false;
   clearTimeout(cursorTimer);
   document.body.classList.remove('cursor-hidden');
@@ -508,6 +518,7 @@ function startAllScenes() {
 
 function enterPlayer() {
   audio.stopAll();
+  resetSoundtrack();
   const savedIdx = parseInt(localStorage.getItem('dndcast_index_' + activeAdventureId), 10);
   const idx = (Number.isFinite(savedIdx) && savedIdx >= 0 && savedIdx < currentScenes.length) ? savedIdx : 0;
   updateAdventureLabel();
@@ -567,7 +578,7 @@ function goToScene(index, imagePos = 'first') {
   updateCounter();
 
   const adventure = allAdventures.find(a => a.id === activeAdventureId);
-  audio.play(sceneAudio(scene, adventure));
+  playSceneAudio(scene, adventure);
   broadcastState();
 }
 
@@ -863,6 +874,7 @@ function applyRemoteState(s) {
     updateAdventureLabel();
     buildSceneList();
     audio.stopAll();
+    resetSoundtrack();
     currentIndex = -1;
   }
 
@@ -895,6 +907,7 @@ function applyPlayerView(v) {
 
   if (v.stop) {                                  // DM returned home
     audio.stopAll();
+    resetSoundtrack();
     playerImageSrc = playerAudioSrc = null;
     setBlackout(true, false);
     waitingOverlay.hidden = false;
@@ -902,6 +915,7 @@ function applyPlayerView(v) {
   }
   if (v.waiting) {                               // DM hasn't picked a scene yet
     audio.stopAll();
+    resetSoundtrack();
     playerImageSrc = playerAudioSrc = null;
     waitingOverlay.hidden = false;
     return;
@@ -916,9 +930,25 @@ function applyPlayerView(v) {
     loadSceneImage(v.image, ++imageGeneration, '', v.fit);
     playerImageSrc = v.image;
   }
-  if (v.audio !== playerAudioSrc) {
-    audio.play({ audio: v.audio, loopAudio: v.loopAudio });
-    playerAudioSrc = v.audio;
+
+  // Audio: a soundtrack playlist (cycling) or the scene's own single track.
+  if (Array.isArray(v.playlist) && v.playlist.length) {
+    const key = v.playlist.join('|');
+    if (!playingSoundtrack || key !== playerPlaylistKey) {
+      soundtrackList   = v.playlist;
+      soundtrackIndex  = 0;
+      playingSoundtrack = true;
+      playerPlaylistKey = key;
+      playerAudioSrc   = null;
+      audio.play({ audio: soundtrackList[0], loopAudio: false });
+    }
+  } else {
+    playingSoundtrack = false;
+    playerPlaylistKey = null;
+    if (v.audio !== playerAudioSrc) {
+      audio.play({ audio: v.audio, loopAudio: v.loopAudio });
+      playerAudioSrc = v.audio;
+    }
   }
 
   if (v.paused !== audio.isPaused()) { if (v.paused) audio.pause(); else audio.resume(); }
@@ -1334,17 +1364,53 @@ function slugify(text) {
     .replace(/-+/g, '-');
 }
 
-// Effective audio for a scene, honoring the adventure soundtrack fallback.
-// Mirrored server-side in server.js (sceneAudio) for the sanitized player view.
+// Adventure soundtrack as a playlist (back-compat with a single string). Empty
+// when none. Mirrored server-side for the sanitized player view.
+function soundtrackOf(adventure) {
+  const s = adventure && adventure.soundtrack;
+  return Array.isArray(s) ? s.filter(Boolean) : (s ? [s] : []);
+}
+
+// Decide and start audio for a scene:
 //   • scene.silent → no music, even if the adventure has a soundtrack
-//   • scene.audio  → that track
-//   • else soundtrack → the adventure's default soundtrack (looped)
+//   • scene.audio  → that track (loops per scene.loopAudio)
+//   • else soundtrack playlist → the adventure's soundtrack, continuous & looping
 //   • else → silent
-function sceneAudio(scene, adventure) {
-  if (scene.silent) return { audio: null };
-  if (scene.audio)  return { audio: scene.audio, loopAudio: scene.loopAudio !== false };
-  if (adventure && adventure.soundtrack) return { audio: adventure.soundtrack, loopAudio: true };
-  return { audio: null };
+function playSceneAudio(scene, adventure) {
+  if (scene.silent) { stopSoundtrack(); audio.play({ audio: null }); return; }
+  if (scene.audio)  { stopSoundtrack(); audio.play({ audio: scene.audio, loopAudio: scene.loopAudio !== false }); return; }
+  const list = soundtrackOf(adventure);
+  if (!list.length) { stopSoundtrack(); audio.play({ audio: null }); return; }
+  startSoundtrack(list);
+}
+
+// Begin or continue the soundtrack playlist. Scenes that inherit it keep the
+// music going rather than restarting it.
+function startSoundtrack(list) {
+  const sameList = playingSoundtrack && list.join('|') === soundtrackList.join('|');
+  soundtrackList = list;
+  if (sameList && audio.current) return;        // already cycling this list
+  if (!sameList) soundtrackIndex = 0;
+  playingSoundtrack = true;
+  audio.play({ audio: list[soundtrackIndex % list.length], loopAudio: false });
+}
+
+function stopSoundtrack() { playingSoundtrack = false; }
+
+// Full reset on adventure change / home / stop — the next soundtrack starts fresh.
+function resetSoundtrack() {
+  playingSoundtrack = false;
+  soundtrackList = [];
+  soundtrackIndex = 0;
+  playerPlaylistKey = null;
+}
+
+// Advance to the next playlist track when one ends (wraps the list). Non-looping
+// scene audio also fires 'ended', but only the soundtrack runs in playlist mode.
+function onAudioEnded() {
+  if (!playingSoundtrack || !soundtrackList.length) return;
+  soundtrackIndex = (soundtrackIndex + 1) % soundtrackList.length;
+  audio.play({ audio: soundtrackList[soundtrackIndex], loopAudio: false });
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────

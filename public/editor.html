@@ -134,11 +134,9 @@
             </select>
           </label>
           <div class="field-label">
-            Soundtrack <span class="field-hint">(loops on scenes with no audio of their own)</span>
-            <div class="path-row">
-              <input type="text" name="soundtrack" placeholder="assets/audio/theme.mp3">
-              <button type="button" class="browse-btn" data-field="soundtrack" data-type="audio">Browse</button>
-            </div>
+            Soundtrack <span class="field-hint">(one or more tracks — plays as a looping playlist on scenes with no audio of their own)</span>
+            <div id="adventure-soundtrack-list"></div>
+            <button type="button" id="add-soundtrack-btn" class="btn-ghost btn-small">+ Add track</button>
           </div>
         </form>
 

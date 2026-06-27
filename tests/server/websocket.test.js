@@ -225,7 +225,7 @@ describe('Player-role sanitized view', () => {
     dm.close();
   });
 
-  it('falls back to the adventure soundtrack, but honors a scene custom track and silent override', async () => {
+  it('falls back to the adventure soundtrack playlist, but honors a scene custom track and silent override', async () => {
     const dmAgent = request.agent(ctx.app);
     await login(dmAgent);
     await dmAgent.post('/api/save').send({
@@ -234,7 +234,8 @@ describe('Player-role sanitized view', () => {
         { id: 'b', image: 'img/b.jpg', audio: 'assets/audio/b.mp3' },      // custom track wins
         { id: 'c', image: 'img/c.jpg', silent: true },                     // silent overrides soundtrack
       ],
-      adventures: [{ id: 'adv', title: 'A', scenes: ['a', 'b', 'c'], soundtrack: 'assets/audio/theme.mp3' }],
+      adventures: [{ id: 'adv', title: 'A', scenes: ['a', 'b', 'c'],
+                     soundtrack: ['assets/audio/theme1.mp3', 'assets/audio/theme2.mp3'] }],
     });
 
     const player = await connect(ctx.port, await cookie(TEST_PLAYER_PASSWORD), 'st-room');
@@ -246,10 +247,26 @@ describe('Player-role sanitized view', () => {
       return received;
     }
 
-    expect(await viewFor(0)).toMatchObject({ audio: 'assets/audio/theme.mp3', loopAudio: true }); // fallback
-    expect(await viewFor(1)).toMatchObject({ audio: 'assets/audio/b.mp3' });                       // custom
-    expect(await viewFor(2)).toMatchObject({ audio: null });                                       // silent
+    expect(await viewFor(0)).toMatchObject({ playlist: ['assets/audio/theme1.mp3', 'assets/audio/theme2.mp3'] }); // fallback
+    expect(await viewFor(1)).toMatchObject({ audio: 'assets/audio/b.mp3' });                                       // custom
+    expect(await viewFor(2)).toMatchObject({ audio: null });                                                       // silent
 
+    player.close();
+    dm.close();
+  });
+
+  it('treats a single-string soundtrack as a one-item playlist (back-compat)', async () => {
+    const dmAgent = request.agent(ctx.app);
+    await login(dmAgent);
+    await dmAgent.post('/api/save').send({
+      scenes: [{ id: 'a', image: 'img/a.jpg' }],
+      adventures: [{ id: 'adv', title: 'A', scenes: ['a'], soundtrack: 'assets/audio/theme.mp3' }],
+    });
+    const player = await connect(ctx.port, await cookie(TEST_PLAYER_PASSWORD), 'st1-room');
+    const dm     = await connect(ctx.port, await cookie(),                    'st1-room');
+    const received = waitForMessage(player);
+    dm.send(JSON.stringify({ activeAdventureId: 'adv', sceneIndex: 0, paused: false }));
+    expect(await received).toMatchObject({ playlist: ['assets/audio/theme.mp3'] });
     player.close();
     dm.close();
   });

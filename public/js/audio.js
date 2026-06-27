@@ -25,6 +25,7 @@ export class AudioController {
     this.localOutput = true;     // false = silence THIS device only (DM tab)
     this.onStateChange = null;   // () => void  — fired on play/pause/swap
     this.onError       = null;   // (src, autoplayBlocked) => void
+    this.onEnded       = null;   // () => void  — fired when a non-looping track ends
     this._notifyBound  = () => this._notify();
   }
 
@@ -53,6 +54,10 @@ export class AudioController {
     audio.addEventListener('pause', this._notifyBound);
     audio.addEventListener('error', () => {
       if (gen === this.gen && this.onError) this.onError(scene.audio, false);
+    });
+    // Drives playlist advance: fires only for non-looping tracks that reach the end.
+    audio.addEventListener('ended', () => {
+      if (gen === this.gen && this.onEnded) this.onEnded();
     });
 
     if (gen !== this.gen) { this._destroy(audio); return; }  // superseded already
